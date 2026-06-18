@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}{{ topic }}{% endblock %}
+{% block content %}
+<section class="topic-hero">
+  <a class="back-link" href="/">Back to topics</a>
+  <p class="course-kicker">MGT 404 Practice</p>
+  <h1>{{ topic }}</h1>
+  <p class="hero-copy">{{ generated_count }} active generated variants; {{ original_count }} extracted originals available as fallback.</p>
+</section>
+
+<section class="problem-workspace" data-topic="{{ topic }}">
+  <div class="toolbar">
+    <button id="generate-problem" class="primary-button" type="button">Generate problem</button>
+    <button id="show-solution" class="secondary-button" type="button" disabled>Show explained solution</button>
+  </div>
+  <article id="problem-panel" class="problem-panel" aria-live="polite">
+    <p class="empty-state">Generate a problem to begin.</p>
+  </article>
+  <article id="solution-panel" class="solution-panel" aria-live="polite" hidden></article>
+</section>
+
+<script src="{{ url_for('static', path='/app.js') }}"></script>
+{% endblock %}
