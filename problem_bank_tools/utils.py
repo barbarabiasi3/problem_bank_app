@@ -76,7 +76,7 @@ def write_jsonl(path: Path | str, rows: Iterable[dict[str, Any]]) -> None:
     file_path.parent.mkdir(parents=True, exist_ok=True)
     with file_path.open("w", encoding="utf-8") as handle:
         for row in rows:
-            handle.write(json.dumps(row, ensure_ascii=False, sort_keys=True) + "\n")
+            handle.write(_jsonl_line(row) + "\n")
 
 
 def append_jsonl(path: Path | str, rows: Iterable[dict[str, Any]]) -> None:
@@ -84,7 +84,16 @@ def append_jsonl(path: Path | str, rows: Iterable[dict[str, Any]]) -> None:
     file_path.parent.mkdir(parents=True, exist_ok=True)
     with file_path.open("a", encoding="utf-8") as handle:
         for row in rows:
-            handle.write(json.dumps(row, ensure_ascii=False, sort_keys=True) + "\n")
+            handle.write(_jsonl_line(row) + "\n")
+
+
+def _jsonl_line(row: dict[str, Any]) -> str:
+    line = json.dumps(row, ensure_ascii=False, sort_keys=True)
+    return (
+        line.replace("\u2028", "\\u2028")
+        .replace("\u2029", "\\u2029")
+        .replace("\x85", "\\u0085")
+    )
 
 
 def run_text_command(args: list[str], timeout: int = 60) -> str:
