@@ -18,10 +18,26 @@ from problem_bank_tools.utils import DATA_FILES, compact_ws, read_jsonl, slugify
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DATA_DIR = Path(os.getenv("PROBLEM_BANK_DATA_DIR", PROJECT_ROOT / "data"))
 STUDENT_TOPIC_RENAMES = {"Unclassified": "Mixed Review"}
+BRAND_LOGO_CANDIDATES = [
+    "img/yale-som-logo.svg",
+    "img/yale-som-logo.png",
+    "img/yale_logo.svg",
+    "img/yale_logo.png",
+    "img/yale-logo.svg",
+    "img/yale-logo.png",
+]
 
 app = FastAPI(title="MGT 404 Problem Bank")
 app.mount("/static", StaticFiles(directory=Path(__file__).parent / "static"), name="static")
 templates = Jinja2Templates(directory=Path(__file__).parent / "templates")
+
+
+def brand_logo_path() -> str | None:
+    static_dir = Path(__file__).parent / "static"
+    for relative_path in BRAND_LOGO_CANDIDATES:
+        if (static_dir / relative_path).exists():
+            return f"/static/{relative_path}"
+    return None
 
 
 def _jsonl(name: str) -> Path:
@@ -286,3 +302,4 @@ def health() -> dict[str, Any]:
 
 templates.env.filters["compact"] = compact_ws
 templates.env.filters["slugify"] = slugify
+templates.env.globals["brand_logo_path"] = brand_logo_path

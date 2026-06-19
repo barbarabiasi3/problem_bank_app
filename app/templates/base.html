@@ -9,7 +9,10 @@
   <body>
     <header class="site-header">
       <a class="wordmark" href="/">
-        <span class="shield" aria-hidden="true">Y</span>
+        {% set logo_path = brand_logo_path() %}
+        {% if logo_path %}
+          <img class="brand-logo" src="{{ logo_path }}" alt="Yale School of Management">
+        {% endif %}
         <span class="school-name"><span>Yale</span> School of Management</span>
       </a>
       <nav class="main-nav" aria-label="Primary navigation">

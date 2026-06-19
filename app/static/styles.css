@@ -44,20 +44,6 @@ a {
   text-decoration: none;
 }
 
-.shield {
-  display: grid;
-  place-items: center;
-  width: 58px;
-  aspect-ratio: 0.84;
-  color: var(--white);
-  background: var(--yale-blue);
-  border: 3px solid #071e36;
-  border-radius: 0 0 36px 36px;
-  font-family: Georgia, "Times New Roman", serif;
-  font-size: 32px;
-  font-weight: 700;
-}
-
 .school-name {
   font-family: Georgia, "Times New Roman", serif;
   font-size: clamp(25px, 3.2vw, 44px);
@@ -68,6 +54,15 @@ a {
 
 .school-name span {
   font-variant: normal;
+}
+
+.brand-logo {
+  display: block;
+  flex: 0 0 auto;
+  width: clamp(54px, 7vw, 88px);
+  max-height: 96px;
+  object-fit: contain;
+  object-position: left center;
 }
 
 .main-nav {
@@ -378,11 +373,6 @@ td code,
 
   .wordmark {
     gap: 16px;
-  }
-
-  .shield {
-    width: 52px;
-    font-size: 30px;
   }
 
   .hero,
