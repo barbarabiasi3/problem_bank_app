@@ -39,14 +39,14 @@ a {
 .wordmark {
   display: inline-flex;
   align-items: center;
-  gap: 28px;
+  gap: 18px;
   color: var(--yale-blue);
   text-decoration: none;
 }
 
 .school-name {
   font-family: Georgia, "Times New Roman", serif;
-  font-size: clamp(25px, 3.2vw, 44px);
+  font-size: clamp(24px, 2.3vw, 36px);
   font-variant: small-caps;
   line-height: 1;
   white-space: normal;
@@ -59,8 +59,10 @@ a {
 .brand-logo {
   display: block;
   flex: 0 0 auto;
-  width: clamp(54px, 7vw, 88px);
-  max-height: 96px;
+  width: auto !important;
+  height: clamp(48px, 5vw, 76px) !important;
+  max-width: 64px !important;
+  max-height: 78px !important;
   object-fit: contain;
   object-position: left center;
 }

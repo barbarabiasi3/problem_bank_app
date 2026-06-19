@@ -18,6 +18,24 @@ from problem_bank_tools.utils import DATA_FILES, compact_ws, read_jsonl, slugify
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DATA_DIR = Path(os.getenv("PROBLEM_BANK_DATA_DIR", PROJECT_ROOT / "data"))
 STUDENT_TOPIC_RENAMES = {"Unclassified": "Mixed Review"}
+SYLLABUS_TOPIC_ORDER = [
+    "Supply and Demand",
+    "Elasticity",
+    "Taxes and Government Intervention",
+    "Externalities and Public Goods",
+    "Consumer Choice",
+    "Production and Costs",
+    "Trade and Welfare",
+    "Perfect Competition",
+    "Monopoly",
+    "Price Discrimination",
+    "Oligopoly and Strategic Competition",
+    "Game Theory",
+    "Risk and Insurance",
+    "Asymmetric Information",
+    "Incentives and Contracts",
+]
+SYLLABUS_TOPIC_RANK = {topic: index for index, topic in enumerate(SYLLABUS_TOPIC_ORDER)}
 BRAND_LOGO_CANDIDATES = [
     "img/yale-som-logo.svg",
     "img/yale-som-logo.png",
@@ -67,6 +85,14 @@ def student_topic_name(topic: str | None) -> str:
     return STUDENT_TOPIC_RENAMES.get(topic, topic)
 
 
+def topic_sort_key(topic: str) -> tuple[int, str]:
+    if topic == "Mixed Review":
+        return (10_000, topic)
+    if topic in SYLLABUS_TOPIC_RANK:
+        return (SYLLABUS_TOPIC_RANK[topic], topic)
+    return (9_000, topic)
+
+
 def clean_student_text(text: str, title: str = "") -> str:
     lines = []
     skip_contains = (
@@ -108,7 +134,7 @@ def topic_summary() -> list[dict[str, Any]]:
         topics[topic]["generated"] += 1
     for topic in topics.values():
         topic["available"] = topic["generated"] + topic["originals"]
-    return sorted(topics.values(), key=lambda item: item["topic"])
+    return sorted(topics.values(), key=lambda item: topic_sort_key(item["topic"]))
 
 
 def topic_from_slug(topic_slug: str) -> str:
