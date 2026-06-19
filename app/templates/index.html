@@ -16,7 +16,7 @@
     {% for topic in topics %}
       <a class="topic-card" href="/topic/{{ topic.slug }}">
         <span class="topic-name">{{ topic.topic }}</span>
-        <span class="topic-meta">{{ topic.generated }} generated / {{ topic.originals }} original</span>
+        <span class="topic-meta">{{ topic.available }} available problems</span>
       </a>
     {% endfor %}
   </div>

@@ -17,6 +17,7 @@ from problem_bank_tools.utils import DATA_FILES, compact_ws, read_jsonl, slugify
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DATA_DIR = Path(os.getenv("PROBLEM_BANK_DATA_DIR", PROJECT_ROOT / "data"))
+STUDENT_TOPIC_RENAMES = {"Unclassified": "Mixed Review"}
 
 app = FastAPI(title="MGT 404 Problem Bank")
 app.mount("/static", StaticFiles(directory=Path(__file__).parent / "static"), name="static")
@@ -45,19 +46,56 @@ def load_bank() -> dict[str, list[dict[str, Any]]]:
     }
 
 
+def student_topic_name(topic: str | None) -> str:
+    topic = topic or "Mixed Review"
+    return STUDENT_TOPIC_RENAMES.get(topic, topic)
+
+
+def clean_student_text(text: str, title: str = "") -> str:
+    lines = []
+    skip_contains = (
+        "YALE SCHOOL OF MANAGEMENT",
+        "BASICS OF ECONOMICS",
+        "FINAL EXAM",
+        "Fall 20",
+        "Instructions:",
+        "Grading:",
+        "Material covered:",
+        "Due on Canvas",
+    )
+    for raw_line in text.splitlines():
+        line = raw_line.strip()
+        if not line:
+            if lines and lines[-1]:
+                lines.append("")
+            continue
+        if any(item.lower() in line.lower() for item in skip_contains):
+            continue
+        if line.isdigit():
+            continue
+        lines.append(line)
+    cleaned = "\n".join(lines).strip()
+    if title:
+        for number in range(1, 10):
+            cleaned = cleaned.replace(f"Problem {number}. {title}", "").strip()
+    return cleaned
+
+
 def topic_summary() -> list[dict[str, Any]]:
     bank = load_bank()
     topics: dict[str, dict[str, Any]] = {}
     for problem in bank["problems"]:
-        topic = problem.get("topic") or "Unclassified"
+        topic = student_topic_name(problem.get("topic"))
         topics.setdefault(topic, {"topic": topic, "slug": slugify(topic), "originals": 0, "generated": 0})
         topics[topic]["originals"] += 1
     for generated in bank["generated"]:
         if generated.get("disabled"):
             continue
-        topic = generated.get("topic") or "Unclassified"
+        topic = student_topic_name(generated.get("topic"))
         topics.setdefault(topic, {"topic": topic, "slug": slugify(topic), "originals": 0, "generated": 0})
         topics[topic]["generated"] += 1
+    for topic in topics.values():
+        topic["available"] = topic["generated"] + topic["originals"]
     return sorted(topics.values(), key=lambda item: item["topic"])
 
 
@@ -73,12 +111,12 @@ def active_items_for_topic(topic: str) -> tuple[list[dict[str, Any]], list[dict[
     generated = [
         row
         for row in bank["generated"]
-        if row.get("topic") == topic and not row.get("disabled") and row.get("problem_text")
+        if student_topic_name(row.get("topic")) == topic and not row.get("disabled") and row.get("problem_text")
     ]
     originals = [
         row
         for row in bank["problems"]
-        if row.get("topic") == topic and row.get("problem_text")
+        if student_topic_name(row.get("topic")) == topic and row.get("problem_text")
     ]
     return generated, originals
 
@@ -92,27 +130,29 @@ def find_problem(item_type: str, item_id: str) -> dict[str, Any]:
     raise HTTPException(status_code=404, detail="Problem not found")
 
 
-def public_problem_payload(item_type: str, row: dict[str, Any]) -> dict[str, Any]:
+def public_problem_payload(item_type: str, row: dict[str, Any], history_reset: bool = False) -> dict[str, Any]:
     item_id = row["generated_id"] if item_type == "generated" else row["problem_id"]
     return {
         "item_type": item_type,
         "item_id": item_id,
-        "topic": row.get("topic", "Unclassified"),
+        "topic": student_topic_name(row.get("topic")),
         "subtopic": row.get("subtopic", ""),
         "difficulty": row.get("difficulty", "medium"),
-        "problem_title": row.get("problem_title") or row.get("variation_notes", ""),
-        "problem_text": row.get("problem_text", ""),
+        "problem_title": row.get("problem_title") or row.get("subtopic") or student_topic_name(row.get("topic")),
+        "problem_text": clean_student_text(row.get("problem_text", ""), row.get("problem_title", "")),
         "subparts": row.get("subparts", []),
-        "source_file": row.get("source_file", ""),
         "solution_url": f"/api/solution/{item_type}/{item_id}",
+        "history_key": f"{item_type}:{item_id}",
+        "history_reset": history_reset,
     }
 
 
 @app.get("/", response_class=HTMLResponse)
 def index(request: Request) -> HTMLResponse:
     return templates.TemplateResponse(
+        request,
         "index.html",
-        {"request": request, "topics": topic_summary()},
+        {"topics": topic_summary()},
     )
 
 
@@ -121,9 +161,9 @@ def topic_page(request: Request, topic_slug: str) -> HTMLResponse:
     topic = topic_from_slug(topic_slug)
     generated, originals = active_items_for_topic(topic)
     return templates.TemplateResponse(
+        request,
         "topic.html",
         {
-            "request": request,
             "topic": topic,
             "topic_slug": topic_slug,
             "generated_count": len(generated),
@@ -133,14 +173,30 @@ def topic_page(request: Request, topic_slug: str) -> HTMLResponse:
 
 
 @app.get("/api/problem")
-def api_problem(topic: str) -> dict[str, Any]:
+def api_problem(topic: str, exclude: str = "", last: str = "") -> dict[str, Any]:
     generated, originals = active_items_for_topic(topic)
-    if generated:
-        row = random.choice(generated)
-        return public_problem_payload("generated", row)
-    if originals:
-        row = random.choice(originals)
-        return public_problem_payload("original", row)
+    typed_rows: list[tuple[str, dict[str, Any]]] = (
+        [("generated", row) for row in generated]
+        if generated
+        else [("original", row) for row in originals]
+    )
+    excluded = {item.strip() for item in exclude.split(",") if item.strip()}
+    candidates = [
+        (item_type, row)
+        for item_type, row in typed_rows
+        if f"{item_type}:{row['generated_id' if item_type == 'generated' else 'problem_id']}" not in excluded
+    ]
+    history_reset = False
+    if not candidates and typed_rows:
+        history_reset = True
+        candidates = [
+            (item_type, row)
+            for item_type, row in typed_rows
+            if f"{item_type}:{row['generated_id' if item_type == 'generated' else 'problem_id']}" != last
+        ] or typed_rows
+    if candidates:
+        item_type, row = random.choice(candidates)
+        return public_problem_payload(item_type, row, history_reset=history_reset)
     raise HTTPException(status_code=404, detail="No active problems for this topic")
 
 
@@ -151,13 +207,21 @@ def api_solution(item_type: str, item_id: str) -> dict[str, Any]:
     row = find_problem(item_type, item_id)
     if item_type == "generated":
         solution = row.get("solution", "")
+        solution_subparts = row.get("solution_subparts", [])
         status = "generated_verified" if solution else "missing"
     else:
         solution = row.get("verified_solution") or row.get("given_solution") or ""
+        solution_subparts = row.get("solution_subparts", [])
         status = row.get("solution_status", "unknown")
     if not solution:
         solution = "No verified solution is available yet. Use the admin workflow to verify or regenerate this item."
-    return {"item_type": item_type, "item_id": item_id, "solution_status": status, "solution": solution}
+    return {
+        "item_type": item_type,
+        "item_id": item_id,
+        "solution_status": status,
+        "solution": solution,
+        "solution_subparts": solution_subparts,
+    }
 
 
 @app.get("/admin", response_class=HTMLResponse)
@@ -170,9 +234,9 @@ def admin(request: Request) -> HTMLResponse:
     for source in bank["manifest"]:
         source_roles[source.get("apparent_role", "unknown")] = source_roles.get(source.get("apparent_role", "unknown"), 0) + 1
     return templates.TemplateResponse(
+        request,
         "admin.html",
         {
-            "request": request,
             "topics": topic_summary(),
             "source_count": len(bank["manifest"]),
             "problem_count": len(bank["problems"]),

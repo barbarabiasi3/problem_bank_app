@@ -7,10 +7,16 @@ if (workspace) {
   const generateButton = document.querySelector("#generate-problem");
   const solutionButton = document.querySelector("#show-solution");
   let currentProblem = null;
+  const historyStoreKey = `mgt404-seen:${topic}`;
 
   function renderSubparts(subparts) {
     if (!subparts || !subparts.length) return "";
-    return `<ol class="subparts">${subparts.map((part) => `<li><span>${escapeHtml(part.text)}</span></li>`).join("")}</ol>`;
+    return `<ol class="subparts">${subparts.map((part) => `
+      <li data-label="${escapeHtml(part.label)}">
+        <span class="subpart-label">(${escapeHtml(part.label)})</span>
+        <span>${escapeHtml(part.text)}</span>
+        <div class="inline-solution" hidden></div>
+      </li>`).join("")}</ol>`;
   }
 
   function escapeHtml(value) {
@@ -28,13 +34,23 @@ if (workspace) {
     solutionPanel.hidden = true;
     solutionPanel.innerHTML = "";
     problemPanel.innerHTML = `<p class="empty-state">Loading...</p>`;
-    const response = await fetch(`/api/problem?topic=${encodeURIComponent(topic)}`);
+    const seen = JSON.parse(localStorage.getItem(historyStoreKey) || "[]");
+    const last = seen.length ? seen[seen.length - 1] : "";
+    const params = new URLSearchParams({
+      topic,
+      exclude: seen.join(","),
+      last,
+    });
+    const response = await fetch(`/api/problem?${params.toString()}`);
     if (!response.ok) {
       problemPanel.innerHTML = `<p class="empty-state">No active problems are available for this topic yet.</p>`;
       generateButton.disabled = false;
       return;
     }
     currentProblem = await response.json();
+    const nextSeen = currentProblem.history_reset ? [] : seen;
+    nextSeen.push(currentProblem.history_key);
+    localStorage.setItem(historyStoreKey, JSON.stringify([...new Set(nextSeen)]));
     problemPanel.innerHTML = `
       <div class="problem-meta">
         <span>${escapeHtml(currentProblem.difficulty)}</span>
@@ -60,13 +76,21 @@ if (workspace) {
       return;
     }
     const data = await response.json();
-    solutionPanel.innerHTML = `
-      <div class="solution-heading">
-        <span>Explained solution</span>
-        <span>${escapeHtml(data.solution_status)}</span>
-      </div>
-      <div class="solution-text">${escapeHtml(data.solution)}</div>
-    `;
+    const solutionParts = data.solution_subparts || [];
+    if (solutionParts.length) {
+      solutionParts.forEach((part) => {
+        const label = window.CSS && CSS.escape ? CSS.escape(part.label) : part.label;
+        const target = problemPanel.querySelector(`li[data-label="${label}"] .inline-solution`);
+        if (target) {
+          target.innerHTML = `<strong>Solution (${escapeHtml(part.label)}):</strong> ${escapeHtml(part.text)}`;
+          target.hidden = false;
+        }
+      });
+      solutionPanel.hidden = true;
+      solutionPanel.innerHTML = "";
+      return;
+    }
+    solutionPanel.innerHTML = `<div class="solution-text">${escapeHtml(data.solution)}</div>`;
   }
 
   generateButton.addEventListener("click", generateProblem);

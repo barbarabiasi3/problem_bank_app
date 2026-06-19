@@ -11,7 +11,6 @@ from .source_manifest import build_manifest
 from .utils import (
     DEFAULT_BANK_DIR,
     DEFAULT_DATA_DIR,
-    append_jsonl,
     compact_ws,
     data_path,
     detect_difficulty,
@@ -387,5 +386,8 @@ def extract_problem_bank(
     write_jsonl(data_path("solutions", data_dir), solutions)
     if not data_path("generated", data_dir).exists():
         data_path("generated", data_dir).touch()
-    append_jsonl(data_path("audit", data_dir), audit_rows)
+    existing_audit = [
+        row for row in read_jsonl(data_path("audit", data_dir)) if row.get("stage") != "extraction"
+    ]
+    write_jsonl(data_path("audit", data_dir), [*existing_audit, *audit_rows])
     return problems, solutions
