@@ -88,7 +88,13 @@ Full target generation for reviewed parents:
 python3 scripts/generate_variants.py --per-parent 50 --batch-size 5
 ```
 
-By default, generation uses only parents marked `correct` or `minor_issue`. Use `--allow-unknown` only for early prototyping, not for production teaching materials.
+For the static local bank used by the student app, run:
+
+```bash
+python3 scripts/generate_curated_bank.py --per-topic 50
+```
+
+The student app samples from `data/generated_problems.jsonl` only. Extracted original problems remain available in the admin/audit workflow but are not shown to students.
 
 Output:
 

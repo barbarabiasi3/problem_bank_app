@@ -84,10 +84,6 @@ def clean_student_text(text: str, title: str = "") -> str:
 def topic_summary() -> list[dict[str, Any]]:
     bank = load_bank()
     topics: dict[str, dict[str, Any]] = {}
-    for problem in bank["problems"]:
-        topic = student_topic_name(problem.get("topic"))
-        topics.setdefault(topic, {"topic": topic, "slug": slugify(topic), "originals": 0, "generated": 0})
-        topics[topic]["originals"] += 1
     for generated in bank["generated"]:
         if generated.get("disabled"):
             continue
@@ -113,12 +109,7 @@ def active_items_for_topic(topic: str) -> tuple[list[dict[str, Any]], list[dict[
         for row in bank["generated"]
         if student_topic_name(row.get("topic")) == topic and not row.get("disabled") and row.get("problem_text")
     ]
-    originals = [
-        row
-        for row in bank["problems"]
-        if student_topic_name(row.get("topic")) == topic and row.get("problem_text")
-    ]
-    return generated, originals
+    return generated, []
 
 
 def find_problem(item_type: str, item_id: str) -> dict[str, Any]:
@@ -175,11 +166,7 @@ def topic_page(request: Request, topic_slug: str) -> HTMLResponse:
 @app.get("/api/problem")
 def api_problem(topic: str, exclude: str = "", last: str = "") -> dict[str, Any]:
     generated, originals = active_items_for_topic(topic)
-    typed_rows: list[tuple[str, dict[str, Any]]] = (
-        [("generated", row) for row in generated]
-        if generated
-        else [("original", row) for row in originals]
-    )
+    typed_rows: list[tuple[str, dict[str, Any]]] = [("generated", row) for row in generated]
     excluded = {item.strip() for item in exclude.split(",") if item.strip()}
     candidates = [
         (item_type, row)
