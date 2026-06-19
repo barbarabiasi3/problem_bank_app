@@ -36,10 +36,16 @@ def firm(i: int, offset: int = 0) -> str:
     return FIRMS[(i + offset) % len(FIRMS)]
 
 
+def possessive(name: str) -> str:
+    return f"{name}'" if name.endswith("s") else f"{name}'s"
+
+
 def money(x: float) -> str:
-    if abs(x - round(x)) < 1e-8:
-        return f"${int(round(x))}"
-    return f"${x:.2f}"
+    sign = "-" if x < 0 else ""
+    amount = abs(x)
+    if abs(amount - round(amount)) < 1e-8:
+        return f"{sign}${int(round(amount))}"
+    return f"{sign}${amount:.2f}"
 
 
 def num(x: float) -> str:
@@ -131,9 +137,20 @@ def supply_and_demand(i: int) -> dict[str, Any]:
         qd = a - b * ceiling
         qsupply = c + d * ceiling
         shortage = max(0, qd - qsupply)
-        text = f"A regulator caps the price of {f}'s rental permits at {money(ceiling)}. Market demand is Qd = {a} - {b}P and market supply is Qs = {c} + {d}P."
+        binding = ceiling < p0
+        b_text = (
+            f"The ceiling is binding because {money(ceiling)} is below the equilibrium price of {money(p0)}."
+            if binding
+            else f"The ceiling is not binding because {money(ceiling)} is {'equal to' if math.isclose(ceiling, p0) else 'above'} the equilibrium price of {money(p0)}."
+        )
+        c_text = (
+            f"At {money(ceiling)}, Qd = {num(qd)} and Qs = {num(qsupply)}, so the shortage is {num(shortage)}."
+            if binding
+            else f"Because the ceiling is not binding, there is no shortage. At {money(ceiling)}, Qd = {num(qd)} and Qs = {num(qsupply)}."
+        )
+        text = f"A regulator caps the price of {possessive(f)} rental permits at {money(ceiling)}. Market demand is Qd = {a} - {b}P and market supply is Qs = {c} + {d}P."
         qs = parts(("a", "Find the unregulated equilibrium price."), ("b", "Is the price ceiling binding?"), ("c", "If binding, compute the shortage."))
-        ss = parts(("a", f"Set demand equal to supply: {a} - {b}P = {c} + {d}P, so P = {money(p0)}."), ("b", f"The ceiling is binding if it is below {money(p0)}. Here {money(ceiling)} is below the equilibrium price, so it binds."), ("c", f"At {money(ceiling)}, Qd = {num(qd)} and Qs = {num(qsupply)}, so the shortage is {num(shortage)}."))
+        ss = parts(("a", f"Set demand equal to supply: {a} - {b}P = {c} + {d}P, so P = {money(p0)}."), ("b", b_text), ("c", c_text))
         return make_row("Supply and Demand", "Price ceiling", "medium", text, qs, ss, ["price ceiling", "shortage"], {"a": a, "b": b, "c": c, "d": d, "ceiling": ceiling}, family="price ceiling")
     if k == 3:
         a, b, c, d, subsidy = 120 + i, 3, 10 + i % 10, 3, 5 + i % 5
@@ -150,7 +167,7 @@ def supply_and_demand(i: int) -> dict[str, Any]:
     q0 = a - b * p0
     p1 = (a - (c - shock)) / (b + d)
     q1 = a - b * p1
-    text = f"A supply disruption hits {f}'s supplier network. Before the disruption, demand is Qd = {a} - {b}P and supply is Qs = {c} + {d}P. Afterward, supply falls by {shock} units at every price."
+    text = f"A supply disruption hits {possessive(f)} supplier network. Before the disruption, demand is Qd = {a} - {b}P and supply is Qs = {c} + {d}P. Afterward, supply falls by {shock} units at every price."
     qs = parts(("a", "Find the initial equilibrium."), ("b", "Find the post-disruption equilibrium."), ("c", "Interpret the price and quantity changes."))
     ss = parts(("a", f"Initial equilibrium gives P = {money(p0)} and Q = {num(q0)}."), ("b", f"New supply is Qs = {c - shock} + {d}P. Solving gives P = {money(p1)} and Q = {num(q1)}."), ("c", "A leftward supply shift raises price and lowers quantity."))
     return make_row("Supply and Demand", "Supply shock", "easy", text, qs, ss, ["supply shift", "equilibrium"], {"a": a, "b": b, "c": c, "d": d, "shock": shock}, family="supply disruption")
@@ -179,14 +196,14 @@ def elasticity(i: int) -> dict[str, Any]:
     if k == 2:
         q0, q1, other0, other1 = 900 + 4 * i, 960 + 5 * i, 10 + i % 4, 12 + i % 4
         cross = ((q1 - q0) / q0) / ((other1 - other0) / other0)
-        text = f"When a rival raises its price from {money(other0)} to {money(other1)}, {f}'s weekly sales rise from {q0} to {q1} units."
+        text = f"When a rival raises its price from {money(other0)} to {money(other1)}, {possessive(f)} weekly sales rise from {q0} to {q1} units."
         qs = parts(("a", "Compute the cross-price elasticity."), ("b", "Are the two products substitutes or complements?"), ("c", "What managerial action might this suggest?"))
         ss = parts(("a", f"Cross-price elasticity is ({q1} - {q0})/{q0} divided by ({other1} - {other0})/{other0} = {num(cross)}."), ("b", "It is positive, so the goods are substitutes."), ("c", "The firm may gain customers when the rival raises price, so monitoring competitor prices is valuable."))
         return make_row("Elasticity", "Cross-price elasticity", "easy", text, qs, ss, ["cross-price elasticity", "substitutes"], {"q0": q0, "q1": q1, "other0": other0, "other1": other1}, family="cross elasticity")
     if k == 3:
         q0, q1, y0, y1 = 400 + 2 * i, 440 + 3 * i, 80 + i, 88 + i
         inc = ((q1 - q0) / q0) / ((y1 - y0) / y0)
-        text = f"As average customer income rises from {money(y0)} thousand to {money(y1)} thousand, annual purchases of {f}'s service rise from {q0} to {q1}."
+        text = f"As average customer income rises from {money(y0)} thousand to {money(y1)} thousand, annual purchases of {possessive(f)} service rise from {q0} to {q1}."
         qs = parts(("a", "Compute income elasticity."), ("b", "Is this a normal or inferior good?"), ("c", "Is it closer to a necessity or a luxury?"))
         ss = parts(("a", f"Income elasticity is ({q1} - {q0})/{q0} divided by ({y1} - {y0})/{y0} = {num(inc)}."), ("b", "The elasticity is positive, so it is a normal good."), ("c", f"Since the value is {'above' if inc > 1 else 'below'} 1, it is {'more luxury-like' if inc > 1 else 'more necessity-like'}."))
         return make_row("Elasticity", "Income elasticity", "easy", text, qs, ss, ["income elasticity"], {"q0": q0, "q1": q1, "y0": y0, "y1": y1}, family="income elasticity")
@@ -226,7 +243,7 @@ def taxes_policy(i: int) -> dict[str, Any]:
         a, b, c, d, ceiling = 130 + i, 3, 6 + i % 7, 2, 22 + i % 4
         p0 = (a - c) / (b + d)
         qd, qsupply = a - b * ceiling, c + d * ceiling
-        text = f"A consumer-protection rule caps the price of {f}'s service at {money(ceiling)}. Demand is Qd = {a} - {b}P and supply is Qs = {c} + {d}P."
+        text = f"A consumer-protection rule caps the price of {possessive(f)} service at {money(ceiling)}. Demand is Qd = {a} - {b}P and supply is Qs = {c} + {d}P."
         qs = parts(("a", "Find the market-clearing price."), ("b", "Does the ceiling bind?"), ("c", "If it binds, who is rationed and by how much?"))
         ss = parts(("a", f"Market-clearing price is {money(p0)}."), ("b", f"The ceiling is {'binding' if ceiling < p0 else 'not binding'} because it is {'below' if ceiling < p0 else 'above'} equilibrium."), ("c", f"If binding, buyers are rationed by the shortage Qd - Qs = {num(qd - qsupply)}."))
         return make_row("Taxes and Government Intervention", "Price ceiling", "medium", text, qs, ss, ["price ceiling", "shortage"], {"a": a, "b": b, "c": c, "d": d, "ceiling": ceiling}, family="price ceiling")
@@ -236,7 +253,7 @@ def taxes_policy(i: int) -> dict[str, Any]:
         ps = (a - c + b * subsidy) / (b + d)
         pb = ps - subsidy
         q1 = a - b * pb
-        text = f"The state offers buyers of {f}'s product a subsidy of {money(subsidy)} per unit. Demand is Qd = {a} - {b}Pb and supply is Qs = {c} + {d}Ps."
+        text = f"The state offers buyers of {possessive(f)} product a subsidy of {money(subsidy)} per unit. Demand is Qd = {a} - {b}Pb and supply is Qs = {c} + {d}Ps."
         qs = parts(("a", "Find the no-subsidy equilibrium price."), ("b", "Find buyer price, seller price, and quantity with the subsidy."), ("c", "Who receives the subsidy check, and why is that not the same as economic incidence?"))
         ss = parts(("a", f"No subsidy gives P = {money(p0)}."), ("b", f"With Ps = Pb + {subsidy}, solving gives Ps = {money(ps)}, Pb = {money(pb)}, Q = {num(q1)}."), ("c", "Legal receipt is about who gets the check; economic incidence is about how market prices change."))
         return make_row("Taxes and Government Intervention", "Subsidy incidence", "medium", text, qs, ss, ["subsidy", "incidence"], {"a": a, "b": b, "c": c, "d": d, "subsidy": subsidy}, family="subsidy")
@@ -275,7 +292,7 @@ def trade_welfare(i: int) -> dict[str, Any]:
         pw = 42 + i % 7
         c, d2 = 10 + i % 6, 2
         qd, qsupply = a - b * pw, c + d2 * pw
-        text = f"{f}'s home country is considering opening to free trade. Domestic demand is Qd = {a} - {b}P, domestic supply is Qs = {c} + {d2}P, and the world price is {money(pw)}."
+        text = f"{possessive(f)} home country is considering opening to free trade. Domestic demand is Qd = {a} - {b}P, domestic supply is Qs = {c} + {d2}P, and the world price is {money(pw)}."
         qs = parts(("a", "At the world price, does the country import or export?"), ("b", "How many units are traded internationally?"), ("c", "Who benefits from opening trade in this case?"))
         trade = qsupply - qd
         ss = parts(("a", f"At {money(pw)}, Qd = {num(qd)} and Qs = {num(qsupply)}. Since supply exceeds demand, the country exports."), ("b", f"Exports are Qs - Qd = {num(trade)}."), ("c", "Domestic producers benefit from the higher selling opportunity; domestic consumers face the world price."))
@@ -285,7 +302,7 @@ def trade_welfare(i: int) -> dict[str, Any]:
         p1 = pw + tariff
         qd0, qs0 = a - b * pw, d * pw
         qd1, qs1 = a - b * p1, d * p1
-        text = f"{f}'s procurement team wants to know how a tariff changes domestic consumption. Demand is Qd = {a} - {b}P, domestic supply is Qs = {d}P, the world price is {money(pw)}, and the tariff is {money(tariff)}."
+        text = f"{possessive(f)} procurement team wants to know how a tariff changes domestic consumption. Demand is Qd = {a} - {b}P, domestic supply is Qs = {d}P, the world price is {money(pw)}, and the tariff is {money(tariff)}."
         qs = parts(("a", "Compute the change in domestic consumption."), ("b", "Compute the change in domestic production."), ("c", "Compute the change in imports."))
         ss = parts(("a", f"Consumption falls from {num(qd0)} to {num(qd1)}, a change of {num(qd1 - qd0)}."), ("b", f"Domestic production rises from {num(qs0)} to {num(qs1)}, a change of {num(qs1 - qs0)}."), ("c", f"Imports fall from {num(qd0 - qs0)} to {num(qd1 - qs1)}."))
         return make_row("Trade and Welfare", "Tariff quantity effects", "easy", text, qs, ss, ["tariff", "consumption"], {"a": a, "b": b, "d": d, "world_price": pw, "tariff": tariff}, family="tariff quantities")
@@ -324,7 +341,7 @@ def production_costs(i: int) -> dict[str, Any]:
         fixed, v = 64 + i, 8 + i % 5
         q_min = math.sqrt(fixed)
         min_atc = v + 2 * math.sqrt(fixed)
-        text = f"{f}'s long-run cost is C(q) = {fixed} + {v}q + q^2."
+        text = f"{possessive(f)} long-run cost is C(q) = {fixed} + {v}q + q^2."
         qs = parts(("a", "Write average total cost."), ("b", "Find the output that minimizes average total cost."), ("c", "Find minimum average total cost."))
         ss = parts(("a", f"ATC = {fixed}/q + {v} + q."), ("b", f"Minimize {fixed}/q + q. The minimum occurs at q = sqrt({fixed}) = {num(q_min)}."), ("c", f"Minimum ATC is {v} + 2sqrt({fixed}) = {money(min_atc)}."))
         return make_row("Production and Costs", "Minimum efficient scale", "medium", text, qs, ss, ["average cost", "scale"], {"fixed": fixed, "v": v}, {"cost": f"C(q)={fixed}+{v}q+q^2"}, family="ATC")
@@ -398,7 +415,7 @@ def monopoly(i: int) -> dict[str, Any]:
         cap = 42 + i % 6
         qcap = (a - cap) / b
         qmon = (a - c) / (2 * b)
-        text = f"A regulator caps {f}'s price at {money(cap)}. Demand is P = {a} - {b}Q and marginal cost is {money(c)}."
+        text = f"A regulator caps {possessive(f)} price at {money(cap)}. Demand is P = {a} - {b}Q and marginal cost is {money(c)}."
         qs = parts(("a", "Find the unconstrained monopoly quantity."), ("b", "If the cap binds, find quantity demanded at the cap."), ("c", "Does the cap move output toward efficiency?"))
         ss = parts(("a", f"Unconstrained Q is {num(qmon)}."), ("b", f"At P = {money(cap)}, demand is Q = ({a} - {cap})/{b} = {num(qcap)}."), ("c", "A binding cap below monopoly price raises output toward the efficient quantity, as long as price remains above marginal cost."))
         return make_row("Monopoly", "Price regulation", "hard", text, qs, ss, ["price cap", "regulation"], {"a": a, "b": b, "mc": c, "cap": cap}, family="price cap")
@@ -459,8 +476,8 @@ def price_discrimination(i: int) -> dict[str, Any]:
         base_h, prem_h, base_l, prem_l, c_base, c_prem = 50 + i, 90 + i, 45 + i, 60 + i, 10, 20
         text = f"{f} sells Basic and Premium plans. High types value Basic at {money(base_h)} and Premium at {money(prem_h)}. Low types value Basic at {money(base_l)} and Premium at {money(prem_l)}. Costs are {money(c_base)} and {money(c_prem)}."
         qs = parts(("a", "If types are observable, what is the maximum price for each plan/type?"), ("b", "Why can self-selection force the firm to leave information rent?"), ("c", "Which type usually receives the rent in this setting?"))
-        ss = parts(("a", f"Observable types can be charged up to their values: high {money(prem_h)} for Premium and low {money(base_l)} or {money(prem_l)} depending on assigned plan."), ("b", "If types are not observable, the high type must prefer Premium over imitating the low type; that incentive constraint can require leaving surplus."), ("c", "The high type usually receives information rent so that it self-selects into the premium option."))
-        return make_row("Price Discrimination", "Self-selection", "medium", text, qs, ss, ["self-selection", "information rent"], {"base_h": base_h, "prem_h": prem_h, "base_l": base_l, "prem_l": prem_l}, family="versioning")
+        ss = parts(("a", f"Observable types can be charged up to their values for each plan: high type Basic {money(base_h)}, high type Premium {money(prem_h)}, low type Basic {money(base_l)}, and low type Premium {money(prem_l)}."), ("b", "If types are not observable, the high type must prefer Premium over imitating the low type; that incentive constraint can require leaving surplus."), ("c", "The high type usually receives information rent so that it self-selects into the premium option."))
+        return make_row("Price Discrimination", "Self-selection", "medium", text, qs, ss, ["self-selection", "information rent"], {"base_h": base_h, "prem_h": prem_h, "base_l": base_l, "prem_l": prem_l, "cost_base": c_base, "cost_premium": c_prem}, family="versioning")
     p_reg, q_reg, p_peak, q_peak, mc = 20 + i % 5, 300 + i, 35 + i % 5, 180 + i, 8
     text = f"{f} sells the same service in regular and peak periods. Regular price and quantity are {money(p_reg)} and {q_reg}; peak price and quantity are {money(p_peak)} and {q_peak}. Marginal cost is {money(mc)} in both periods."
     qs = parts(("a", "Compute contribution in each period."), ("b", "Why might peak pricing be efficient?"), ("c", "What condition would make prices equal across periods?"))
@@ -475,7 +492,7 @@ def risk_insurance(i: int) -> dict[str, Any]:
         value, fail = 1000 + 20 * i, 0.05 + (i % 4) * 0.01
         ev = value * (1 - fail)
         text = f"{f} sells a device worth {money(value)} if it works and {money(0)} if it fails. The failure probability is {pct(fail)}."
-        qs = parts(("a", "Find willingness to pay for a risk-neutral buyer."), ("b", "If cost is lower by $100, find producer surplus."), ("c", "How would risk aversion affect willingness to pay?"))
+        qs = parts(("a", "Find willingness to pay for a risk-neutral buyer."), ("b", "If production cost is $100 below the risk-neutral willingness to pay from part (a), find producer surplus."), ("c", "How would risk aversion affect willingness to pay?"))
         ss = parts(("a", f"WTP equals expected value: (1 - {num(fail)}) x {money(value)} = {money(ev)}."), ("b", f"Producer surplus is {money(ev)} - {money(ev - 100)} = {money(100)}."), ("c", "Risk aversion lowers WTP below expected value for uninsured downside risk."))
         return make_row("Risk and Insurance", "Expected value", "easy", text, qs, ss, ["expected value", "risk aversion"], {"value": value, "failure_probability": fail}, family="risky product")
     if k == 1:
@@ -523,13 +540,23 @@ def asymmetric_information(i: int) -> dict[str, Any]:
     share_good = 0.5 if k != 1 else 0.4
     pooled = share_good * good_v + (1 - share_good) * bad_v
     if k in {0, 1, 2}:
-        text = f"Buyers cannot observe whether {f}'s marketplace item is high or low quality. High quality is worth {money(good_v)} and costs {money(good_c)}; low quality is worth {money(bad_v)} and costs {money(bad_c)}. The high-quality share is {pct(share_good)}."
+        text = f"Buyers cannot observe whether {possessive(f)} marketplace item is high or low quality. High quality is worth {money(good_v)} and costs {money(good_c)}; low quality is worth {money(bad_v)} and costs {money(bad_c)}. The high-quality share is {pct(share_good)}."
         qs = parts(("a", "Compute pooled willingness to pay."), ("b", "Which sellers participate at the pooled price?"), ("c", "Explain the adverse-selection pressure."))
-        ss = parts(("a", f"Pooled WTP is {num(share_good)} x {good_v} + {num(1-share_good)} x {bad_v} = {money(pooled)}."), ("b", f"High quality participates if {money(pooled)} >= {money(good_c)}; low quality participates if {money(pooled)} >= {money(bad_c)}."), ("c", "If high-quality sellers exit, average quality falls and the pooled WTP falls too."))
+        high_participates = pooled >= good_c
+        low_participates = pooled >= bad_c
+        if high_participates and low_participates:
+            participation = "both high- and low-quality sellers participate"
+        elif high_participates:
+            participation = "only high-quality sellers participate"
+        elif low_participates:
+            participation = "only low-quality sellers participate"
+        else:
+            participation = "neither type participates"
+        ss = parts(("a", f"Pooled WTP is {num(share_good)} x {good_v} + {num(1-share_good)} x {bad_v} = {money(pooled)}."), ("b", f"High quality participates if {money(pooled)} >= {money(good_c)}, which is {'true' if high_participates else 'false'} here; low quality participates if {money(pooled)} >= {money(bad_c)}, which is {'true' if low_participates else 'false'} here. Therefore, {participation}."), ("c", "If high-quality sellers exit, average quality falls and the pooled WTP falls too."))
         return make_row("Asymmetric Information", "Adverse selection", "medium", text, qs, ss, ["adverse selection"], {"good_v": good_v, "bad_v": bad_v, "good_c": good_c, "bad_c": bad_c, "share_good": share_good}, family="lemons")
     cert_cost = 12 + i % 6
     gain = good_v - pooled
-    text = f"High-quality sellers on {f}'s platform can buy certification costing {money(cert_cost)}. Without certification, buyers pay the pooled value {money(pooled)}; certified high-quality sellers can charge {money(good_v)}."
+    text = f"High-quality sellers on {possessive(f)} platform can buy certification costing {money(cert_cost)}. Without certification, buyers pay the pooled value {money(pooled)}; certified high-quality sellers can charge {money(good_v)}."
     qs = parts(("a", "What is the gross benefit of certification?"), ("b", "Will high-quality sellers certify?"), ("c", "Why might low-quality sellers not certify?"))
     ss = parts(("a", f"Gross benefit is {money(good_v)} - {money(pooled)} = {money(gain)}."), ("b", f"They certify if {money(gain)} >= {money(cert_cost)}, which is {'true' if gain >= cert_cost else 'false'} here."), ("c", "A credible certificate must be harder or less valuable for low-quality sellers to mimic."))
     return make_row("Asymmetric Information", "Certification", "medium", text, qs, ss, ["signaling", "certification"], {"good_v": good_v, "pooled": pooled, "cert_cost": cert_cost}, family="certification")
@@ -538,7 +565,8 @@ def asymmetric_information(i: int) -> dict[str, Any]:
 def incentives_contracts(i: int) -> dict[str, Any]:
     f = firm(i, 5)
     ph, pl = 0.75, 0.50
-    outside, effort = 18 + i % 8, 5 + i % 6
+    effort = 5 + i % 6
+    outside = max(18 + i % 8, 2 * effort)
     bonus = effort / (ph - pl)
     wage = outside + effort - ph * bonus
     k = i % 5
@@ -578,14 +606,15 @@ def game_theory(i: int) -> dict[str, Any]:
         ss = parts(("a", f"If entry occurs, {f2} prefers Accommodate because {acc_r} > {fight_r}. Anticipating this, {f1} enters because {acc_i} > 0."), ("b", "Yes, entry occurs."), ("c", "No. Fighting is not credible because accommodation is better after entry."))
         return make_row("Game Theory", "Sequential entry", "medium", text, qs, ss, ["backward induction"], {"firm1": f1, "firm2": f2}, family="entry game")
     if k == 3:
-        clean_cost, both_clean, polluter, cleaner, both_pollute = 7 + i % 5, 50 + i, 56 + i, 34 + i, 40 + i
+        clean_cost, both_clean, polluter, cleaner = 7 + i % 5, 50 + i, 56 + i, 34 + i
+        both_pollute = both_clean - clean_cost - 2
         text = f"{f1} and {f2} choose Clean or Pollute. Clean costs each firm {clean_cost}. If both are clean, each gets {both_clean} before costs. If one pollutes while the other is clean, the polluter gets {polluter} and the clean firm gets {cleaner} before any clean cost. If both pollute, each gets {both_pollute}."
         qs = parts(("a", "Compute net payoffs for each outcome."), ("b", "What is each firm's dominant action?"), ("c", "Why is this a prisoners' dilemma?"))
         ss = parts(("a", f"Both clean gives {both_clean - clean_cost} each. Pollute against clean gives {polluter} to polluter and {cleaner - clean_cost} to cleaner. Both pollute gives {both_pollute} each."), ("b", "Pollute is dominant: it beats Clean whether the other firm is clean or polluting."), ("c", f"Both would be better at Clean/Clean ({both_clean - clean_cost},{both_clean - clean_cost}) than Pollute/Pollute ({both_pollute},{both_pollute}), but individual incentives lead to pollution."))
         return make_row("Game Theory", "Prisoners' dilemma", "medium", text, qs, ss, ["prisoners dilemma"], {"firm1": f1, "firm2": f2}, family="externality game")
     al1, al2, ar1, ar2, bl1, bl2, br1, br2 = 30 + i, 40 + i, 20 + i, 20 + i, 35 + i, 10 + i, 25 + i, 30 + i
     text = f"{f1} chooses A or B, and {f2} chooses Left or Right. Payoffs are: A/Left ({al1},{al2}), A/Right ({ar1},{ar2}), B/Left ({bl1},{bl2}), B/Right ({br1},{br2})."
-    qs = parts(("a", f"Find {f1}'s best response to each action by {f2}."), ("b", f"Find {f2}'s best response to each action by {f1}."), ("c", "Find the Nash equilibrium."))
+    qs = parts(("a", f"Find {possessive(f1)} best response to each action by {f2}."), ("b", f"Find {possessive(f2)} best response to each action by {f1}."), ("c", "Find the Nash equilibrium."))
     ss = parts(("a", f"If {f2} chooses Left, {f1} chooses B ({bl1} > {al1}). If Right, {f1} chooses B ({br1} > {ar1})."), ("b", f"If {f1} chooses A, {f2} chooses Left ({al2} > {ar2}). If B, {f2} chooses Right ({br2} > {bl2})."), ("c", "The only mutual best response is B/Right."))
     return make_row("Game Theory", "Best responses", "medium", text, qs, ss, ["best response", "Nash"], {"firm1": f1, "firm2": f2}, family="best responses")
 
@@ -652,7 +681,7 @@ def externalities_public_goods(i: int) -> dict[str, Any]:
     if k == 3:
         benefit, external, cost = 40 + i % 6, 15 + i % 5, 30
         net_social = benefit + external - cost
-        text = f"Each unit of {f}'s training service gives buyers private marginal benefit {money(benefit)} and creates external benefit {money(external)} for coworkers. Marginal cost is {money(cost)}."
+        text = f"Each unit of {possessive(f)} training service gives buyers private marginal benefit {money(benefit)} and creates external benefit {money(external)} for coworkers. Marginal cost is {money(cost)}."
         qs = parts(("a", "Find private net benefit."), ("b", "Find social net benefit."), ("c", "What subsidy would align private and social incentives?"))
         ss = parts(("a", f"Private net benefit is {money(benefit - cost)}."), ("b", f"Social net benefit is {money(net_social)}."), ("c", f"A per-unit subsidy equal to the external benefit, {money(external)}, aligns incentives."))
         return make_row("Externalities and Public Goods", "Positive externality", "easy", text, qs, ss, ["positive externality", "subsidy"], {"benefit": benefit, "external": external, "cost": cost}, family="positive externality")

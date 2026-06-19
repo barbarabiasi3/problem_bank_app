@@ -123,11 +123,15 @@ h2 {
 }
 
 .hero-copy {
-  max-width: 760px;
+  max-width: none;
   margin: 24px 0 0;
   color: var(--muted);
   font-size: clamp(15px, 1.6vw, 19px);
   line-height: 1.4;
+}
+
+.hero .hero-copy {
+  white-space: nowrap;
 }
 
 .topic-band,
@@ -380,6 +384,10 @@ td code,
   .hero,
   .topic-hero {
     padding: 58px 0 46px;
+  }
+
+  .hero .hero-copy {
+    white-space: normal;
   }
 
   .section-heading {
