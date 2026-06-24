@@ -164,7 +164,34 @@ If using those optional tools, keep API keys server-side or local-only. Do not r
 
 ## Deployment Notes
 
-For a simple deployment:
+### Fly.io
+
+The repo includes a Fly deployment setup:
+
+- `Dockerfile`: installs the app and runs Uvicorn on `0.0.0.0:8080`.
+- `.dockerignore`: keeps backups, raw exams/problem-bank files, slides, tests, logs, and local metadata out of the deployed image.
+- `fly.toml`: exposes the app on Fly's default internal port `8080` and checks `/health`.
+
+Before deploying, make sure the first line of `fly.toml` matches the app name in your Fly dashboard:
+
+```toml
+app = "problem-bank-app"
+```
+
+Deploy:
+
+```bash
+fly deploy
+```
+
+Then check:
+
+```bash
+fly status
+fly logs
+```
+
+For other platforms:
 
 1. Deploy the FastAPI app with `uvicorn` or `gunicorn` plus a Uvicorn worker.
 2. Bundle or mount the `data/` directory, especially `data/generated_problems.jsonl`.
