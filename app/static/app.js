@@ -78,7 +78,6 @@ if (workspace) {
     problemPanel.innerHTML = `
       <div class="problem-meta">
         <span>${escapeHtml(currentProblem.difficulty)}</span>
-        <span>${escapeHtml(currentProblem.subtopic || currentProblem.item_type)}</span>
       </div>
       <h2>${escapeHtml(currentProblem.problem_title || currentProblem.topic)}</h2>
       <div class="problem-text math-text">${formatMathText(currentProblem.problem_text)}</div>
