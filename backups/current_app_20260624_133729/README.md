@@ -88,7 +88,6 @@ Problem style:
 - Medium problems have 5 linked subparts.
 - Hard problems have 5-6 linked subparts with an extension or changed assumption.
 - All levels should include intuition, interpretation, or policy/business reasoning, not only arithmetic.
-- The June 24 expanded-slide refresh adds first-half micro and game-theory coverage, including reservation prices, demand aggregation, surge/rationing, elasticity types, tax pass-through, cap-and-trade, capital-labor tradeoffs, dominated strategies, coordination/location games, backward induction, hold-up, ultimatum/fairness, and Bertrand-trap variants.
 
 The generated bank is written to:
 
@@ -187,5 +186,4 @@ Logo asset convention:
 - Exact duplicate source files are grouped by hash and only canonical copies are extracted.
 - Admin may show source counts, audit notes, extracted originals, generated variants, disable/enable controls, and export.
 - Student-facing text should not use internal words like `template`.
-- Pre-expanded-slide-refresh backup: `backups/current_app_20260624_133729/`.
 - Pre-refresh backup for the June 24, 2026 exam-style bank update: `backups/current_app_20260624_112258/`.

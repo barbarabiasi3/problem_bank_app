@@ -183,32 +183,6 @@ def supply_and_demand(i: int) -> dict[str, Any]:
     difficulty = difficulty_for_index(i)
     f, city, good = firm(i), place(i), product(i)
     if difficulty == "easy":
-        if i % 3 == 0:
-            values = [84 + i, 72 + i, 63 + i % 7, 49 + i % 5, 37 + i % 4]
-            p = values[2] - 3
-            buyers = sum(value >= p for value in values)
-            cs = sum(max(0, value - p) for value in values)
-            new_values = [value + 8 for value in values]
-            new_buyers = sum(value >= p for value in new_values)
-            text = (
-                f"{f} surveys five potential buyers for a new {good} pass. Their reservation prices are "
-                f"{', '.join(money(value) for value in values)}. The firm is considering a posted price of {money(p)}. "
-                f"Later, a complementary service improves, raising each buyer's reservation price by {money(8)}."
-            )
-            qs = parts(
-                ("a", "At the posted price, how many buyers purchase?"),
-                ("b", "Compute total consumer surplus at that price."),
-                ("c", "After reservation prices rise, how many buyers purchase at the same price?"),
-                ("d", "Explain how reservation prices connect to the demand curve."),
-            )
-            ss = parts(
-                ("a", f"{buyers} buyers have reservation prices at or above {money(p)}, so quantity demanded is {buyers}."),
-                ("b", f"Consumer surplus is the sum of value minus price across buyers who purchase: {money(cs)}."),
-                ("c", f"After the shift, {new_buyers} buyers purchase at {money(p)}."),
-                ("d", "The demand curve counts how many buyers have reservation prices at least as high as each possible price."),
-            )
-            return make_row("Supply and Demand", "Reservation prices", difficulty, "Building Demand from Reservation Prices", text, qs, ss, ["reservation price", "demand curve", "consumer surplus"], {"values": values, "price": p, "shift": 8}, family="reservation prices")
-
         a, b, c, d, shift = 140 + 2 * i, 2 + i % 2, 20 + i % 7, 2, 18 + i % 8
         p0 = (a - c) / (b + d)
         q0 = a - b * p0
@@ -235,39 +209,6 @@ def supply_and_demand(i: int) -> dict[str, Any]:
         return make_row("Supply and Demand", "Demand shift", difficulty, f"{good.title()} Demand Shift", text, qs, ss, ["equilibrium", "demand shift"], {"a": a, "b": b, "c": c, "d": d, "shift": shift}, family="demand shift")
 
     if difficulty == "medium":
-        if i % 2 == 0:
-            demand_intercept = 170 + i
-            supply_intercept = 28 + i % 6
-            supply_slope = 0.5
-            p_eq = (demand_intercept + 2 * supply_intercept) / 3
-            q_eq = demand_intercept - p_eq
-            cap = p_eq - (18 + i % 5)
-            qd_cap = demand_intercept - cap
-            qs_cap = max(0, (cap - supply_intercept) / supply_slope)
-            shortage = qd_cap - qs_cap
-            cs = 0.5 * (demand_intercept - p_eq) * q_eq
-            ps = 0.5 * (p_eq - supply_intercept) * q_eq
-            text = (
-                f"During a storm, ride requests in {city} are described by Qd = {demand_intercept} - P. Driver supply is summarized by "
-                f"P = {supply_intercept} + 0.5Q. A local rule would cap the ride price at {money(cap)}, below the market-clearing price. "
-                f"Use this Uber-style setting to compare price adjustment with rationing."
-            )
-            qs = parts(
-                ("a", "Find the market-clearing price and quantity without the cap."),
-                ("b", "Compute consumer surplus and producer surplus at the market-clearing price."),
-                ("c", "At the capped price, compute quantity demanded, quantity supplied, and excess demand."),
-                ("d", "Who is helped and who is hurt by the cap in the short run?"),
-                ("e", "Explain why allowing price to rise can increase the number of rides supplied."),
-            )
-            ss = parts(
-                ("a", f"Set {demand_intercept} - P = 2(P - {supply_intercept}). This gives P = {money(p_eq)} and Q = {num(q_eq)}."),
-                ("b", f"CS = 0.5 x ({money(demand_intercept)} - {money(p_eq)}) x {num(q_eq)} = {money(cs)}. PS = 0.5 x ({money(p_eq)} - {money(supply_intercept)}) x {num(q_eq)} = {money(ps)}."),
-                ("c", f"At {money(cap)}, Qd = {num(qd_cap)} and Qs = {num(qs_cap)}, so excess demand is {num(shortage)}."),
-                ("d", "Some riders who get rides pay less, but many riders are rationed; drivers lose surplus and some leave the market."),
-                ("e", "A higher price attracts additional drivers and allocates scarce rides to riders with higher willingness to pay."),
-            )
-            return make_row("Supply and Demand", "Surge pricing and rationing", difficulty, "Rides, Surplus, and Rationing", text, qs, ss, ["equilibrium", "consumer surplus", "producer surplus", "rationing"], {"demand_intercept": demand_intercept, "supply_intercept": supply_intercept, "price_cap": cap}, family="surge pricing")
-
         a, b, c, d, tax = 155 + i, 3, 18 + i % 9, 2, 6 + i % 6
         p0 = (a - c) / (b + d)
         q0 = a - b * p0
@@ -298,38 +239,6 @@ def supply_and_demand(i: int) -> dict[str, Any]:
             ("e", "The seller writes the check, but market prices adjust. Incidence depends on supply and demand responses, not on who remits the tax."),
         )
         return make_row("Supply and Demand", "Tax incidence", difficulty, f"{city} Per-Unit Tax", text, qs, ss, ["tax incidence", "equilibrium", "revenue"], {"a": a, "b": b, "c": c, "d": d, "tax": tax}, family="tax incidence")
-
-    if i % 2 == 0:
-        local_a, local_b = 95 + i, 1.0
-        visitor_a, visitor_b = 78 + i % 9, 0.5
-        c, d = 20 + i % 6, 2
-        p_eq = (local_a + visitor_a - c) / (local_b + visitor_b + d)
-        q_local = local_a - local_b * p_eq
-        q_visitor = visitor_a - visitor_b * p_eq
-        q_total = q_local + q_visitor
-        price_only_locals = (local_a - c) / (local_b + d)
-        text = (
-            f"{city} has two groups of buyers for {good}: local residents with demand QL = {num(local_a)} - P and visitors with demand "
-            f"QV = {num(visitor_a)} - 0.5P. Supply is Qs = {c} + {d}P. Assume the equilibrium price is low enough that both buyer groups are active. "
-            f"The instructor wants students to practice adding demand by quantity, not by price."
-        )
-        qs = parts(
-            ("a", "Write total market demand in quantity form."),
-            ("b", "Find the competitive equilibrium price and total quantity."),
-            ("c", "At that price, how much does each buyer group purchase?"),
-            ("d", "Find the equilibrium price if visitors are absent."),
-            ("e", "Does adding visitors shift demand, rotate demand, or both in this linear example?"),
-            ("f", "Explain why adding inverse demand curves directly would be a mistake."),
-        )
-        ss = parts(
-            ("a", f"Total demand is QD = ({num(local_a)} - P) + ({num(visitor_a)} - 0.5P) = {num(local_a + visitor_a)} - 1.5P."),
-            ("b", f"Set {num(local_a + visitor_a)} - 1.5P = {c} + {d}P. P = {money(p_eq)} and Q = {num(q_total)}."),
-            ("c", f"Locals buy {num(q_local)} and visitors buy {num(q_visitor)}."),
-            ("d", f"With only locals, {num(local_a)} - P = {c} + {d}P, so P = {money(price_only_locals)}."),
-            ("e", "Adding visitors shifts total demand outward and changes its slope because the additional group has its own price sensitivity."),
-            ("f", "Market demand adds quantities at a common price; adding prices would combine willingness-to-pay schedules incorrectly."),
-        )
-        return make_row("Supply and Demand", "Aggregating demand", difficulty, "Adding Demand Across Buyer Groups", text, qs, ss, ["demand aggregation", "equilibrium", "reservation prices"], {"local_a": local_a, "visitor_a": visitor_a, "c": c, "d": d}, family="aggregate demand")
 
     a, b, c, d = 180 + i, 4, 15 + i % 7, 2
     demand_shift, supply_loss, subsidy = 22 + i % 5, 12 + i % 4, 5 + i % 5
@@ -370,29 +279,6 @@ def elasticity(i: int) -> dict[str, Any]:
     difficulty = difficulty_for_index(i)
     f, good = firm(i, 2), product(i, 2)
     if difficulty == "easy":
-        if i % 3 == 0:
-            income0, income1 = 70 + i, 82 + i
-            q0, q1 = 360 + 3 * i, 330 + 2 * i
-            inc = ((q1 - q0) / q0) / ((income1 - income0) / income0)
-            text = (
-                f"{f} tracks demand for a budget entertainment product. When average customer income rises from {money(income0)} thousand "
-                f"to {money(income1)} thousand, monthly purchases fall from {num(q0)} to {num(q1)} units. The marketing team asks whether this "
-                f"looks like a normal good, an inferior good, or just a small data oddity."
-            )
-            qs = parts(
-                ("a", "Compute the income elasticity of demand."),
-                ("b", "Classify the good as normal or inferior."),
-                ("c", "Would a recession tend to raise or lower demand for this product?"),
-                ("d", "Explain why income elasticity can be negative even though own-price elasticity is usually negative."),
-            )
-            ss = parts(
-                ("a", f"Income elasticity is ({q1} - {q0})/{q0} divided by ({income1} - {income0})/{income0} = {num(inc)}."),
-                ("b", "The income elasticity is negative, so this behaves like an inferior good."),
-                ("c", "A recession lowers income, so demand for an inferior good would tend to rise."),
-                ("d", "Own-price elasticity captures movement along a demand curve; income elasticity captures a shift in demand as income changes."),
-            )
-            return make_row("Elasticity", "Income elasticity", difficulty, "Income Changes and Inferior Goods", text, qs, ss, ["income elasticity", "inferior good"], {"income0": income0, "income1": income1, "q0": q0, "q1": q1}, family="income elasticity")
-
         p0, p1 = 18 + i % 7, 22 + i % 7
         q0, q1 = 520 + 3 * i, 470 + 2 * i
         e = ((q1 - q0) / q0) / ((p1 - p0) / p0)
@@ -417,33 +303,6 @@ def elasticity(i: int) -> dict[str, Any]:
         return make_row("Elasticity", "Price elasticity experiment", difficulty, f"{good.title()} Price Experiment", text, qs, ss, ["elasticity", "revenue"], {"p0": p0, "p1": p1, "q0": q0, "q1": q1}, family="price experiment")
 
     if difficulty == "medium":
-        if i % 2 == 0:
-            p0, p1 = 4 + i % 4, 6 + i % 4
-            gas0, gas1 = 900 - 2 * i, 820 - 2 * i
-            truck0, truck1 = 260 + i, 228 + i
-            e_gas = ((gas1 - gas0) / gas0) / ((p1 - p0) / p0)
-            e_truck = ((truck1 - truck0) / truck0) / ((p1 - p0) / p0)
-            text = (
-                f"Gasoline prices rise from {money(p0)} to {money(p1)} per gallon after a supply disruption. In the short run, gasoline "
-                f"purchases fall from {num(gas0)} to {num(gas1)} thousand gallons, while purchases of large trucks fall from {num(truck0)} "
-                f"to {num(truck1)} vehicles. Use the two responses to distinguish own-price and cross-price elasticity."
-            )
-            qs = parts(
-                ("a", "Compute the own-price elasticity of gasoline demand."),
-                ("b", "Compute the elasticity of truck demand with respect to the price of gasoline."),
-                ("c", "Are gasoline and large trucks substitutes or complements?"),
-                ("d", "Which demand response is more elastic in absolute value?"),
-                ("e", "Explain why the time horizon matters for interpreting the gasoline elasticity."),
-            )
-            ss = parts(
-                ("a", f"Gasoline own-price elasticity is {num(e_gas)}."),
-                ("b", f"Truck demand elasticity with respect to gasoline price is {num(e_truck)}."),
-                ("c", "The cross-price elasticity is negative, so gasoline and large trucks are complements."),
-                ("d", f"The truck response is {'more' if abs(e_truck) > abs(e_gas) else 'less'} elastic in absolute value."),
-                ("e", "Short-run gasoline demand is often inelastic because people cannot immediately change commutes, cars, or locations."),
-            )
-            return make_row("Elasticity", "Own and cross elasticity", difficulty, "Gas Prices and Related Markets", text, qs, ss, ["own-price elasticity", "cross-price elasticity", "complements"], {"p0": p0, "p1": p1, "gas0": gas0, "gas1": gas1, "truck0": truck0, "truck1": truck1}, family="gas truck elasticity")
-
         a, b, p = 240 + 2 * i, 4, 28 + i % 8
         q = a - b * p
         e = -b * p / q
@@ -532,34 +391,6 @@ def taxes_policy(i: int) -> dict[str, Any]:
         return make_row("Taxes and Government Intervention", "Price ceiling", difficulty, f"{city} Price Ceiling", text, qs, ss, ["price ceiling", "shortage"], {"a": a, "b": b, "c": c, "d": d, "ceiling": ceiling}, family="price ceiling")
 
     if difficulty == "medium":
-        if i % 2 == 0:
-            tau = 0.20 + (i % 3) * 0.05
-            pc = (a - c) / (b + d / (1 + tau))
-            ps = pc / (1 + tau)
-            q1 = a - b * pc
-            wedge = pc - ps
-            passthrough = (pc - p0) / wedge
-            text = (
-                f"{city} is considering a percentage tax on manufacturers of {good}. Demand is Qd = {a} - {b}P, and supply is "
-                f"Qs = {c} + {d}Ps, where Ps is the price producers receive. The tax rate is {pct(tau)}, so consumers pay "
-                f"Pc = (1 + tax)Ps. Local reporters want to know how much of the tax is passed through to consumers."
-            )
-            qs = parts(
-                ("a", "Find the no-tax equilibrium price and quantity."),
-                ("b", "Find consumer price, producer price, and quantity under the percentage tax."),
-                ("c", "Compute the tax wedge per unit at the new equilibrium."),
-                ("d", "Compute the pass-through rate to consumers."),
-                ("e", "Explain why pass-through can differ across soda, cigarette, and grocery categories."),
-            )
-            ss = parts(
-                ("a", f"No-tax equilibrium is P = {money(p0)} and Q = {num(q0)}."),
-                ("b", f"Using Pc = (1 + tax)Ps gives Pc = {money(pc)}, Ps = {money(ps)}, and Q = {num(q1)}."),
-                ("c", f"The per-unit wedge is Pc - Ps = {money(wedge)}."),
-                ("d", f"Pass-through is the consumer price increase divided by the wedge: ({money(pc)} - {money(p0)})/{money(wedge)} = {pct(passthrough)}."),
-                ("e", "Pass-through depends on the relative elasticities of supply and demand; less elastic buyers absorb more of the burden."),
-            )
-            return make_row("Taxes and Government Intervention", "Percentage tax pass-through", difficulty, f"{good.title()} Pass-Through", text, qs, ss, ["percentage tax", "pass-through", "incidence"], {"a": a, "b": b, "c": c, "d": d, "tax_rate": tau}, family="percentage tax")
-
         tax = 7 + i % 5
         pc = (a - c + d * tax) / (b + d)
         ps = pc - tax
@@ -586,38 +417,6 @@ def taxes_policy(i: int) -> dict[str, Any]:
             ("e", "If demand is inelastic, quantity falls by less, so fewer mutually beneficial trades are lost."),
         )
         return make_row("Taxes and Government Intervention", "Excise tax", difficulty, f"{good.title()} Excise Tax", text, qs, ss, ["tax", "deadweight loss", "incidence"], {"a": a, "b": b, "c": c, "d": d, "tax": tax}, family="excise tax")
-
-    if i % 2 == 0:
-        target = 30 + i % 8
-        m_a, m_b = 2 + i % 3, 5 + i % 4
-        a_a = m_b * target / (m_a + m_b)
-        a_b = m_a * target / (m_a + m_b)
-        permit_price = m_a * a_a
-        standard = target / 2
-        cost_market = 0.5 * m_a * a_a**2 + 0.5 * m_b * a_b**2
-        cost_standard = 0.5 * m_a * standard**2 + 0.5 * m_b * standard**2
-        text = (
-            f"Two firms must reduce emissions by a total of {num(target)} tons. Firm A's marginal abatement cost is MAC_A = {m_a}a_A, "
-            f"and Firm B's marginal abatement cost is MAC_B = {m_b}a_B. Regulators are comparing an equal abatement standard with a cap-and-trade "
-            f"system that lets firms trade until marginal abatement costs are equal."
-        )
-        qs = parts(
-            ("a", "Under an equal standard, how much does each firm abate?"),
-            ("b", "For cost-effective abatement, write the two conditions that must hold."),
-            ("c", "Find the cost-effective abatement allocation."),
-            ("d", "What permit price is implied by the cost-effective allocation?"),
-            ("e", "Compare total abatement cost under the equal standard and the cost-effective allocation."),
-            ("f", "Explain why trading permits can lower cost without changing total emissions."),
-        )
-        ss = parts(
-            ("a", f"Each firm abates {num(standard)} tons."),
-            ("b", "Cost effectiveness requires a_A + a_B = target and MAC_A = MAC_B."),
-            ("c", f"Solving {m_a}a_A = {m_b}a_B and a_A + a_B = {num(target)} gives a_A = {num(a_a)} and a_B = {num(a_b)}."),
-            ("d", f"The permit price equals common marginal abatement cost: {money(permit_price)} per ton."),
-            ("e", f"Equal-standard cost is {money(cost_standard)}; cost-effective abatement cost is {money(cost_market)}."),
-            ("f", "Trading shifts abatement toward the lower-cost firm until marginal costs equalize, while the cap fixes total emissions."),
-        )
-        return make_row("Taxes and Government Intervention", "Cap and trade", difficulty, "Cost-Effective Pollution Control", text, qs, ss, ["cap and trade", "abatement cost", "cost effectiveness"], {"target": target, "m_a": m_a, "m_b": m_b}, family="cap and trade")
 
     floor = p0 + (4 + i % 4)
     qd, qsupply = a - b * floor, c + d * floor
@@ -786,44 +585,6 @@ def production_costs(i: int) -> dict[str, Any]:
             ("e", f"Since price is {'above' if price > min_atc else 'below'} min ATC, long-run forces point toward {'entry and falling price' if price > min_atc else 'exit and rising price'}."),
         )
         return make_row("Production and Costs", "Short run and long run cost", difficulty, "Production Decision with Fixed Cost", text, qs, ss, ["P=MC", "shutdown", "entry"], {"fixed": fixed, "v": v, "price": price}, {"cost": f"C(q)={fixed}+{v}q+q^2"}, family="short run long run")
-
-    if i % 2 == 0:
-        wage = 6 + i % 5
-        machine_price = 72 + 4 * (i % 5)
-        high_machine_price = machine_price + 24
-        plans = [
-            ("A", 30, 0),
-            ("B", 22, 1),
-            ("C", 12, 4),
-            ("D", 0, 12),
-        ]
-        costs = {name: wage * workers + machine_price * machines for name, workers, machines in plans}
-        high_costs = {name: wage * workers + high_machine_price * machines for name, workers, machines in plans}
-        best = min(costs, key=costs.get)
-        best_high = min(high_costs, key=high_costs.get)
-        text = (
-            f"{f} must ship 60 million packages this month. Engineers say four production plans can all hit the target: "
-            f"Plan A uses 30 workers and 0 machines; Plan B uses 22 workers and 1 machine; Plan C uses 12 workers and 4 machines; "
-            f"Plan D uses 0 workers and 12 machines. A worker costs {money(wage)} thousand and a machine costs {money(machine_price)} thousand."
-        )
-        qs = parts(
-            ("a", "Compute the cost of each production plan."),
-            ("b", "Which plan minimizes cost at the current input prices?"),
-            ("c", f"Now suppose machine price rises to {money(high_machine_price)} thousand. Recompute the cost of each plan."),
-            ("d", "At the higher machine price, which plan minimizes cost?"),
-            ("e", "Explain how this illustrates substitution between capital and labor."),
-            ("f", "Why is it not enough to compare plans only by the number of inputs used?"),
-        )
-        text = text + f" Later, machine prices rise to {money(high_machine_price)} thousand while wages stay fixed."
-        ss = parts(
-            ("a", "; ".join(f"Plan {name}: {money(cost)} thousand" for name, cost in costs.items()) + "."),
-            ("b", f"Plan {best} minimizes cost at {money(costs[best])} thousand."),
-            ("c", "; ".join(f"Plan {name}: {money(cost)} thousand" for name, cost in high_costs.items()) + "."),
-            ("d", f"Plan {best_high} minimizes cost at {money(high_costs[best_high])} thousand."),
-            ("e", "When machines become more expensive, the cost-minimizing plan shifts toward using relatively more labor."),
-            ("f", "Inputs have different prices and productivities; cost minimization compares dollar cost for plans that achieve the same output."),
-        )
-        return make_row("Production and Costs", "Capital-labor tradeoffs", difficulty, "Choosing Among Production Plans", text, qs, ss, ["input choice", "cost minimization", "capital labor tradeoff"], {"wage": wage, "machine_price": machine_price, "high_machine_price": high_machine_price, "plans": plans}, family="production plans")
 
     w, r, q = 16 + i % 5, 25 + i % 6, 20 + i % 5
     lstar = q * math.sqrt(r / w)
@@ -1354,25 +1115,6 @@ def game_theory(i: int) -> dict[str, Any]:
     difficulty = difficulty_for_index(i)
     f1, f2 = firm(i, 13), firm(i, 14)
     if difficulty == "easy":
-        if i % 2 == 0:
-            text = (
-                f"{f1} chooses Up or Down and {f2} chooses Left or Right. Payoffs are: Up/Left = (6, 4), Up/Right = (5, 2), "
-                f"Down/Left = (3, 5), and Down/Right = (2, 3). Each firm wants to maximize its own payoff, and they move simultaneously."
-            )
-            qs = parts(
-                ("a", "For firm 1, compare Up and Down if firm 2 chooses Left."),
-                ("b", "For firm 1, compare Up and Down if firm 2 chooses Right."),
-                ("c", "Does firm 1 have a dominant strategy?"),
-                ("d", "Does firm 2 have a dominant strategy? Explain the prediction method you would use next."),
-            )
-            ss = parts(
-                ("a", "If firm 2 chooses Left, firm 1 gets 6 from Up and 3 from Down, so Up is better."),
-                ("b", "If firm 2 chooses Right, firm 1 gets 5 from Up and 2 from Down, so Up is better."),
-                ("c", "Yes. Up strictly dominates Down for firm 1."),
-                ("d", "Firm 2 does not have a dominant strategy: Left is better against Down, but Right is not better against Up. Use best responses to find Nash equilibrium."),
-            )
-            return make_row("Game Theory", "Dominated strategies", difficulty, "Dominant and Dominated Strategies", text, qs, ss, ["dominant strategy", "dominated strategy", "simultaneous game"], {"payoffs": [[(6, 4), (5, 2)], [(3, 5), (2, 3)]]}, family="dominated strategy")
-
         high_high, low_high, high_low, low_low = 2400 + 10 * i, 2700 + 10 * i, 1200 + 5 * i, 1800 + 5 * i
         text = (
             f"{f1} and {f2} simultaneously choose a high price or a low price. If both choose High, each earns {money(high_high)}. "
@@ -1394,51 +1136,6 @@ def game_theory(i: int) -> dict[str, Any]:
         return make_row("Game Theory", "Dominant strategies", difficulty, "A Pricing Prisoner's Dilemma", text, qs, ss, ["dominant strategy", "Nash equilibrium"], {"high_high": high_high, "low_high": low_high, "high_low": high_low, "low_low": low_low}, family="pricing game")
 
     if difficulty == "medium":
-        if i % 3 == 0:
-            text = (
-                f"{f1} and {f2} are choosing a common software standard. If both choose Standard A, payoffs are (5, 4). If both choose "
-                f"Standard B, payoffs are (3, 6). If they choose different standards, payoffs are (1, 1) because the products are incompatible."
-            )
-            qs = parts(
-                ("a", "Find firm 1's best response to each choice by firm 2."),
-                ("b", "Find firm 2's best response to each choice by firm 1."),
-                ("c", "List all Nash equilibria."),
-                ("d", "Which equilibrium does each firm prefer?"),
-                ("e", "Explain how an institution or convention could improve coordination."),
-            )
-            ss = parts(
-                ("a", "Firm 1's best response to A is A; its best response to B is B."),
-                ("b", "Firm 2's best response to A is A; its best response to B is B."),
-                ("c", "There are two Nash equilibria: A/A and B/B."),
-                ("d", f"{f1} prefers A/A, while {f2} prefers B/B."),
-                ("e", "A standard-setting body, contract, regulation, or focal convention can help players coordinate on one equilibrium and avoid incompatibility."),
-            )
-            return make_row("Game Theory", "Coordination game", difficulty, "Choosing a Shared Standard", text, qs, ss, ["coordination game", "multiple Nash equilibria", "institutions"], {"payoffs": [[(5, 4), (1, 1)], [(1, 1), (3, 6)]]}, family="coordination")
-
-        if i % 3 == 1:
-            left_profit, middle_profit, edge_profit = 40 + i, 50 + i, 30 + i
-            text = (
-                f"Two food carts choose locations on a one-mile boardwalk. Customers are evenly distributed and buy from the closer cart. "
-                f"Start with two carts only, then imagine a third cart enters. The lesson from class is that Nash equilibrium can push firms "
-                f"toward the middle even when that is not the most spacious arrangement. In a stylized market report, an edge position is worth "
-                f"{left_profit} demand points, a central position is worth {middle_profit}, and a poorly differentiated nearby position is worth {edge_profit}."
-            )
-            qs = parts(
-                ("a", "With two carts, why is it not a Nash equilibrium for one cart to locate far left and one far right?"),
-                ("b", "Why is both carts clustering at the middle a Nash equilibrium in the simple two-cart model?"),
-                ("c", "With three carts at 1/6, 1/2, and 5/6, why might the middle cart want to move?"),
-                ("d", "Relate the location game to product positioning or political competition."),
-                ("e", "What feature of the model makes clustering attractive?"),
-            )
-            ss = parts(
-                ("a", "Either cart can move slightly toward the center and capture more than half of nearby customers."),
-                ("b", "At the middle, a small move left or right gives the mover less than half the market, so no unilateral move helps."),
-                ("c", "The middle cart may be squeezed by both sides and can sometimes gain by moving just beside one rival, depending on tie-breaking and spacing."),
-                ("d", "Firms and candidates may choose similar positions to capture marginal consumers near the center."),
-                ("e", "Consumers choose the closest option, so moving toward a rival can steal customers without losing too many on the outside."),
-            )
-            return make_row("Game Theory", "Location game", difficulty, "Strategic Location Choice", text, qs, ss, ["Nash equilibrium", "location game", "best response"], {"left_profit": left_profit, "middle_profit": middle_profit, "edge_profit": edge_profit}, family="location")
-
         expand_cost = 220 + 5 * i
         text = (
             f"{f1} and {f2} operate local training centers. Each can charge {money(50)} or {money(40)}. At current capacity, the payoff matrix "
@@ -1463,58 +1160,6 @@ def game_theory(i: int) -> dict[str, Any]:
             ("e", "More capacity makes it more tempting to cut price to fill seats, which can intensify competition and reduce margins."),
         )
         return make_row("Game Theory", "Capacity and pricing game", difficulty, "Capacity Expansion and Price Competition", text, qs, ss, ["Nash equilibrium", "capacity", "price competition"], {"expand_cost": expand_cost}, family="capacity pricing")
-
-    if i % 3 == 0:
-        high_price_profit, low_price_buyer, low_price_supplier = 5 + i % 5, 20 + i, -10 - i % 5
-        text = (
-            f"A supplier can invest in a relationship-specific component for {f1}. If the supplier does not invest, both firms earn 0. "
-            f"If it invests, {f1} then chooses a high price or a low price. A high price gives both firms {money(high_price_profit)} million. "
-            f"A low price gives {f1} {money(low_price_buyer)} million and the supplier {money(low_price_supplier)} million. The investment cannot be redeployed elsewhere."
-        )
-        qs = parts(
-            ("a", "If the supplier has already invested, what price will the buyer choose?"),
-            ("b", "Using backward induction, will the supplier invest?"),
-            ("c", "Which outcome is efficient in total surplus terms?"),
-            ("d", "Why is this a hold-up problem?"),
-            ("e", "Name two remedies that could make investment more likely."),
-            ("f", "Explain why a promise to pay the high price may not be enough without commitment."),
-        )
-        ss = parts(
-            ("a", f"The buyer chooses the low price because {money(low_price_buyer)} million exceeds {money(high_price_profit)} million."),
-            ("b", f"The supplier anticipates receiving {money(low_price_supplier)} million after investing, so it does not invest."),
-            ("c", f"Investment plus high price creates total payoff {money(2 * high_price_profit)} million, which is efficient relative to no investment if positive."),
-            ("d", "The buyer can behave opportunistically after the supplier sinks a relationship-specific investment."),
-            ("e", "Long-term contracts, reputation, vertical integration, or enforceable commitments can reduce hold-up."),
-            ("f", "After investment, the buyer has an incentive to renegotiate unless the promise changes the later payoff or is enforceable."),
-        )
-        return make_row("Game Theory", "Hold-up game", difficulty, "Backward Induction and Hold-Up", text, qs, ss, ["backward induction", "hold-up", "commitment"], {"high_price_profit": high_price_profit, "low_price_buyer": low_price_buyer, "low_price_supplier": low_price_supplier}, family="hold-up")
-
-    if i % 3 == 1:
-        prize = 100
-        fairness_gap = 30 + i % 10
-        max_keep = (prize + fairness_gap) / 2
-        text = (
-            f"Two managers must divide a {money(prize)} bonus pool. Manager A proposes how much to keep, and Manager B accepts or rejects. "
-            f"If B rejects, both get zero. Suppose B rejects any offer that gives B at least {money(fairness_gap)} less than A. "
-            f"Use this fairness threshold to revisit the ultimatum-game prediction."
-        )
-        qs = parts(
-            ("a", "If B cared only about money, what offer would backward induction predict?"),
-            ("b", "With the fairness threshold, what is the most A can keep while B accepts?"),
-            ("c", "What accepted split does backward induction predict now?"),
-            ("d", "How does this differ from the money-only prediction?"),
-            ("e", "Why does backward induction still apply once preferences include fairness?"),
-            ("f", "Give one business setting where non-monetary payoffs can change bargaining outcomes."),
-        )
-        ss = parts(
-            ("a", "A would keep almost all the money and give B the smallest positive amount B would accept."),
-            ("b", f"Need A - B < {money(fairness_gap)} and A + B = {money(prize)}, so A can keep just under {money(max_keep)}."),
-            ("c", f"A keeps about {money(max_keep)} and gives B about {money(prize - max_keep)}, with a tiny adjustment if the rule is strict."),
-            ("d", "A must give B much more because rejection is now rational when the split is perceived as too unfair."),
-            ("e", "Backward induction uses players' true payoffs; if fairness enters utility, the predicted response changes."),
-            ("f", "Examples include wage negotiations, supplier relationships, tipping, severance, and internal bonus allocation."),
-        )
-        return make_row("Game Theory", "Ultimatum game", difficulty, "Fairness in Sequential Bargaining", text, qs, ss, ["ultimatum game", "fairness", "backward induction"], {"prize": prize, "fairness_gap": fairness_gap}, family="ultimatum")
 
     fight_loss, monopoly_profit, entry_profit = 400 + 10 * i, 1800 + 20 * i, 900 + 10 * i
     text = (
@@ -1568,30 +1213,6 @@ def oligopoly(i: int) -> dict[str, Any]:
         return make_row("Oligopoly and Strategic Competition", "Bertrand competition", difficulty, "Bertrand Price Competition", text, qs, ss, ["Bertrand", "marginal cost pricing"], {"mc": c, "price": price}, family="Bertrand")
 
     if difficulty == "medium":
-        if i % 2 == 0:
-            high_cost, low_cost, value, market = 10, 7, 20, 1000 + 10 * i
-            price_low_cost = high_cost - 1
-            profit_low_cost = (price_low_cost - low_cost) * market
-            text = (
-                f"{f1} and {f2} sell an identical online service to {num(market)} customers, each willing to pay up to {money(value)}. "
-                f"{f1}'s marginal cost is {money(high_cost)} and {f2}'s marginal cost is {money(low_cost)}. Prices must be whole dollars, and the lower-price firm serves the whole market; if prices tie, they split the market."
-            )
-            qs = parts(
-                ("a", "Why is a common price above the high-cost firm's marginal cost not stable?"),
-                ("b", "What price can the low-cost firm charge to keep the high-cost firm from profitably undercutting?"),
-                ("c", "Compute the low-cost firm's profit at that price."),
-                ("d", "What happens to the high-cost firm in equilibrium?"),
-                ("e", "Explain why cost leadership is one way out of the symmetric Bertrand trap."),
-            )
-            ss = parts(
-                ("a", "If both firms price well above cost, either can slightly undercut and capture the market."),
-                ("b", f"The low-cost firm can charge {money(price_low_cost)}, just below the high-cost firm's cost of {money(high_cost)}."),
-                ("c", f"Profit is ({money(price_low_cost)} - {money(low_cost)}) x {num(market)} = {money(profit_low_cost)}."),
-                ("d", "The high-cost firm cannot profitably match or undercut below its cost, so it serves no customers."),
-                ("e", "Lower cost lets a firm price aggressively while still earning margin, softening the zero-profit result for that firm."),
-            )
-            return make_row("Oligopoly and Strategic Competition", "Asymmetric Bertrand", difficulty, "Cost Leadership in Bertrand Competition", text, qs, ss, ["Bertrand", "cost leadership", "price competition"], {"high_cost": high_cost, "low_cost": low_cost, "value": value, "market": market}, family="asymmetric Bertrand")
-
         q = (a - c) / 3
         p = a - 2 * q
         profit = (p - c) * q
@@ -1616,34 +1237,6 @@ def oligopoly(i: int) -> dict[str, Any]:
             ("e", "Each firm may gain by secretly expanding output while the other restricts output, so collusion requires enforcement."),
         )
         return make_row("Oligopoly and Strategic Competition", "Cournot duopoly", difficulty, "Cournot Competition and Collusion", text, qs, ss, ["Cournot", "collusion"], {"a": a, "mc": c}, family="Cournot")
-
-    if i % 2 == 0:
-        high_price, low_price, mc, customers, capacity = 20, 10, 10, 3, 2
-        profit_both_high = (high_price - mc) * (customers / 2)
-        profit_deviate_low = (low_price - mc) * capacity
-        profit_high_when_other_low = (high_price - mc) * (customers - capacity)
-        text = (
-            f"{f1} and {f2} sell an identical product to {customers} customers, each willing to pay {money(high_price)}. Marginal cost is "
-            f"{money(mc)}, but each firm can serve at most {capacity} customers. Each firm chooses either a high price of {money(high_price)} or "
-            f"a low price of {money(low_price)}. The lower-price firm sells up to capacity first; any unserved customers may buy from the high-price firm."
-        )
-        qs = parts(
-            ("a", "Compute each firm's profit if both charge the high price."),
-            ("b", "If one firm cuts to the low price while the other stays high, compute each firm's profit."),
-            ("c", "Compute profits if both charge the low price."),
-            ("d", "Find the Nash equilibrium in this two-price game."),
-            ("e", "Explain why capacity constraints can soften Bertrand competition."),
-            ("f", "Name one other way firms try to avoid the Bertrand trap."),
-        )
-        ss = parts(
-            ("a", f"They split demand, so each sells {num(customers / 2)} and earns {money(profit_both_high)}."),
-            ("b", f"The low-price firm earns {money(profit_deviate_low)}. The high-price firm sells the remaining {customers - capacity} customer and earns {money(profit_high_when_other_low)}."),
-            ("c", "At the low price equal to marginal cost, both firms earn zero profit."),
-            ("d", "Both charging the high price is a Nash equilibrium: cutting price earns zero, which is worse than staying high."),
-            ("e", "A low-price firm cannot serve the whole market, so the rival is not completely wiped out by undercutting."),
-            ("f", "Product differentiation, switching costs, long-term relationships, mergers, price matching, and loyalty programs can all soften price competition."),
-        )
-        return make_row("Oligopoly and Strategic Competition", "Capacity-constrained Bertrand", difficulty, "Capacity and the Bertrand Trap", text, qs, ss, ["Bertrand", "capacity constraints", "price war"], {"high_price": high_price, "low_price": low_price, "mc": mc, "customers": customers, "capacity": capacity}, family="capacity Bertrand")
 
     q_leader = (a - c) / 2
     q_follower = (a - c) / 4
@@ -1834,12 +1427,8 @@ def mixed_review(i: int) -> dict[str, Any]:
     funcs = [
         supply_and_demand,
         elasticity,
-        taxes_policy,
         production_costs,
-        game_theory,
-        oligopoly,
         monopoly,
-        externalities_public_goods,
         risk_insurance,
         incentives_contracts,
         trade_welfare,

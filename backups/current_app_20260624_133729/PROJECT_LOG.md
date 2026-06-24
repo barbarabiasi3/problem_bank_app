@@ -141,7 +141,6 @@ python3 scripts/generate_curated_bank.py --per-topic 50
 
 - The generated bank includes varied firm names, scenarios, wording, subpart prompts, parameters, and solution text.
 - The June 24, 2026 refresh rewrote the generated bank in an exam-style structure inspired by past exams/problem sets and the local slide subset.
-- A later June 24, 2026 refresh incorporated the expanded local slide deck: reservation prices, demand aggregation, surge/rationing and surplus, elasticity types, tax pass-through, corrective taxes, cap-and-trade, capital-labor production tradeoffs, dominated strategies, coordination/location games, backward induction, hold-up, ultimatum/fairness, and Bertrand-trap variants.
 - Problems now include linked subquestions with calculation, interpretation, comparison, and policy/business reasoning instead of only short mechanical calculations.
 - Repetitive wording was explicitly reduced. The generator should not stack an added scenario intro on top of a duplicated base setup.
 - Fake but polished firm names are used, such as Aurora Scooters, BluePeak Batteries, Cobalt Cloud, Crimson Kite, Echo Forge, Flux Fitness, Halo Health, LoomLabs, Meridian Micro, Nebula Noodles, Nova Basket, Polaris Bikes, Prism Produce, Quantum Kettle, Sapphire Solar, Summit Seltzer, Vertex Coffee, Vanta Vacuum, Zenith Zips, and Atlas Droneworks.
@@ -230,7 +229,6 @@ Important local URLs:
 
 Recent backup:
 
-- `backups/current_app_20260624_133729/` contains the pre-expanded-slide-refresh app/code/data/docs/slides backup.
 - `backups/current_app_20260624_112258/` contains the pre-refresh app/code/data/docs/slides backup, excluding `.git`, existing backups, raw `problem_bank/`, cache dirs, and Finder metadata.
 
 ## Verification Performed

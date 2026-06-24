@@ -132,9 +132,6 @@ If modifying the generator:
   - Hard: 5-6 subparts, one extension or changed assumption, still course-level rather than trickier math.
 - Avoid merely changing numbers.
 - Vary scenario, wording, subpart prompts, and qualitative framing.
-- The current bank should reflect the expanded local `slides/` set, including:
-  - first-half micro: reservation prices, demand aggregation, surplus, surge/rationing, elasticity types, tax pass-through, corrective taxes, cap-and-trade, and capital-labor production tradeoffs;
-  - game theory: dominated strategies, Nash/best responses, coordination and location games, backward induction, hold-up, ultimatum/fairness, and Bertrand-trap variants.
 - Avoid repetitive wording where an intro repeats the same setup sentence.
 - Use polished fake firm names.
 - Keep questions at intermediate microeconomics level.
@@ -208,7 +205,6 @@ At the time this file was written:
 
 Recent backup:
 
-- `backups/current_app_20260624_133729/` contains the pre-expanded-slide-refresh app/code/data/docs/slides backup.
 - `backups/current_app_20260624_112258/` contains the pre-refresh app/code/data/docs/slides backup, excluding `.git`, existing backups, raw `problem_bank/`, cache dirs, and Finder metadata.
 
 ## Notes About Gemini

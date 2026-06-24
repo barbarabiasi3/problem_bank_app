@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}{{ topic }}{% endblock %}
+{% block content %}
+<section class="topic-hero">
+  <a class="back-link" href="/">Back to topics</a>
+  <p class="course-kicker">MGT 404 Practice</p>
+  <h1>{{ topic }}</h1>
+  <p class="hero-copy">{{ generated_count }} curated problems available. The solution stays hidden until you ask for it.</p>
+</section>
+
+<section class="problem-workspace" data-topic="{{ topic }}">
+  <div class="toolbar">
+    <fieldset class="difficulty-control" aria-label="Question difficulty">
+      <legend>Level</legend>
+      <label>
+        <input type="radio" name="difficulty" value="easy">
+        <span>Easy <small>{{ difficulty_counts.easy }}</small></span>
+      </label>
+      <label>
+        <input type="radio" name="difficulty" value="medium" checked>
+        <span>Medium <small>{{ difficulty_counts.medium }}</small></span>
+      </label>
+      <label>
+        <input type="radio" name="difficulty" value="hard">
+        <span>Hard <small>{{ difficulty_counts.hard }}</small></span>
+      </label>
+    </fieldset>
+    <button id="generate-problem" class="primary-button" type="button">Generate problem</button>
+    <button id="show-solution" class="secondary-button" type="button" disabled>Show explained solution</button>
+  </div>
+  <article id="problem-panel" class="problem-panel" aria-live="polite">
+    <p class="empty-state">Generate a problem to begin.</p>
+  </article>
+  <article id="solution-panel" class="solution-panel" aria-live="polite" hidden></article>
+</section>
+
+<script src="{{ url_for('static', path='/app.js') }}?v=20260624-difficulty-bank"></script>
+{% endblock %}
