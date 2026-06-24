@@ -46,7 +46,7 @@ BRAND_LOGO_CANDIDATES = [
     "img/yale-logo.png",
 ]
 
-app = FastAPI(title="MGT 404 Problem Bank")
+app = FastAPI(title="Problem Bank | Basics of Economics")
 app.mount("/static", StaticFiles(directory=Path(__file__).parent / "static"), name="static")
 templates = Jinja2Templates(directory=Path(__file__).parent / "templates")
 
