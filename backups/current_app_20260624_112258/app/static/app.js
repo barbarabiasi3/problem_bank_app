@@ -6,17 +6,8 @@ if (workspace) {
   const solutionPanel = document.querySelector("#solution-panel");
   const generateButton = document.querySelector("#generate-problem");
   const solutionButton = document.querySelector("#show-solution");
-  const difficultyInputs = document.querySelectorAll('input[name="difficulty"]');
   let currentProblem = null;
-
-  function selectedDifficulty() {
-    const selected = document.querySelector('input[name="difficulty"]:checked');
-    return selected ? selected.value : "medium";
-  }
-
-  function historyStoreKey() {
-    return `mgt404-seen:${topic}:${selectedDifficulty()}`;
-  }
+  const historyStoreKey = `mgt404-seen:${topic}`;
 
   function renderSubparts(subparts) {
     if (!subparts || !subparts.length) return "";
@@ -43,25 +34,23 @@ if (workspace) {
     solutionPanel.hidden = true;
     solutionPanel.innerHTML = "";
     problemPanel.innerHTML = `<p class="empty-state">Loading...</p>`;
-    const storeKey = historyStoreKey();
-    const seen = JSON.parse(localStorage.getItem(storeKey) || "[]");
+    const seen = JSON.parse(localStorage.getItem(historyStoreKey) || "[]");
     const last = seen.length ? seen[seen.length - 1] : "";
     const params = new URLSearchParams({
       topic,
-      difficulty: selectedDifficulty(),
       exclude: seen.join(","),
       last,
     });
     const response = await fetch(`/api/problem?${params.toString()}`);
     if (!response.ok) {
-      problemPanel.innerHTML = `<p class="empty-state">No active ${escapeHtml(selectedDifficulty())} problems are available for this topic yet.</p>`;
+      problemPanel.innerHTML = `<p class="empty-state">No active problems are available for this topic yet.</p>`;
       generateButton.disabled = false;
       return;
     }
     currentProblem = await response.json();
     const nextSeen = currentProblem.history_reset ? [] : seen;
     nextSeen.push(currentProblem.history_key);
-    localStorage.setItem(storeKey, JSON.stringify([...new Set(nextSeen)]));
+    localStorage.setItem(historyStoreKey, JSON.stringify([...new Set(nextSeen)]));
     problemPanel.innerHTML = `
       <div class="problem-meta">
         <span>${escapeHtml(currentProblem.difficulty)}</span>
@@ -106,13 +95,4 @@ if (workspace) {
 
   generateButton.addEventListener("click", generateProblem);
   solutionButton.addEventListener("click", showSolution);
-  difficultyInputs.forEach((input) => {
-    input.addEventListener("change", () => {
-      currentProblem = null;
-      solutionButton.disabled = true;
-      solutionPanel.hidden = true;
-      solutionPanel.innerHTML = "";
-      problemPanel.innerHTML = `<p class="empty-state">Generate a ${escapeHtml(selectedDifficulty())} problem to begin.</p>`;
-    });
-  });
 }

@@ -204,69 +204,6 @@ h2 {
   margin-bottom: 24px;
 }
 
-.difficulty-control {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  min-height: 44px;
-  margin: 0;
-  padding: 4px;
-  border: 1px solid var(--line);
-  border-radius: 5px;
-  background: var(--white);
-}
-
-.difficulty-control legend {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip: rect(0 0 0 0);
-  white-space: nowrap;
-}
-
-.difficulty-control label {
-  display: inline-flex;
-  min-width: 86px;
-}
-
-.difficulty-control input {
-  position: absolute;
-  opacity: 0;
-  pointer-events: none;
-}
-
-.difficulty-control span {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  width: 100%;
-  min-height: 34px;
-  padding: 0 10px;
-  border-radius: 4px;
-  color: var(--yale-blue);
-  font-size: 13px;
-  font-weight: 900;
-  text-transform: uppercase;
-  cursor: pointer;
-}
-
-.difficulty-control small {
-  color: var(--muted);
-  font-size: 12px;
-  font-weight: 800;
-}
-
-.difficulty-control input:checked + span {
-  color: var(--white);
-  background: var(--yale-blue);
-}
-
-.difficulty-control input:checked + span small {
-  color: rgba(255, 255, 255, 0.78);
-}
-
 button,
 .primary-button,
 .secondary-button,

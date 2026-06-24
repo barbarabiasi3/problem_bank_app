@@ -35,7 +35,6 @@ Each generated record should include:
 - `topic`
 - `subtopic`
 - `difficulty`
-- `problem_title`
 - `problem_text`
 - `subparts`
 - `solution`
@@ -56,11 +55,10 @@ Every `subparts` item must have a matching `solution_subparts` item by label. Th
 Do:
 
 - Sample from `data/generated_problems.jsonl` only.
-- Let students choose `easy`, `medium`, or `hard` on the topic page.
 - Hide solutions until the student clicks `Show explained solution`.
 - Keep solutions out of the initial problem API payload.
 - Display solutions inline under each subpart in red.
-- Avoid repeats within a topic/difficulty until that topic/difficulty is exhausted.
+- Avoid repeats within a topic until the topic is exhausted.
 - Show only total available problems on topic cards.
 - Keep wording clean and student-facing.
 
@@ -118,7 +116,6 @@ It currently produces:
 - 800 generated problems
 - 50 per topic
 - 16 topics
-- 15 easy, 25 medium, and 10 hard problems per topic
 - 800 unique IDs
 - 800 unique problem texts
 
@@ -126,10 +123,6 @@ If modifying the generator:
 
 - Preserve mathematical correctness.
 - Keep solutions aligned with subparts.
-- Keep generated problems exam-style rather than mechanical:
-  - Easy: 4 guided subparts, one main model, direct calculation plus intuition.
-  - Medium: 5 linked subparts, calculation plus compare/explain/policy or business reasoning.
-  - Hard: 5-6 subparts, one extension or changed assumption, still course-level rather than trickier math.
 - Avoid merely changing numbers.
 - Vary scenario, wording, subpart prompts, and qualitative framing.
 - Avoid repetitive wording where an intro repeats the same setup sentence.
@@ -154,7 +147,6 @@ rows = read_jsonl('data/generated_problems.jsonl')
 print('rows', len(rows))
 print('unique_ids', len({r['generated_id'] for r in rows}))
 print('unique_texts', len({r['problem_text'] for r in rows}))
-print('difficulty_counts', {d: sum(r['difficulty'] == d for r in rows) for d in ['easy', 'medium', 'hard']})
 print('bad_alignment', sum(len(r.get('subparts', [])) != len(r.get('solution_subparts', [])) for r in rows))
 PY
 ```
@@ -164,7 +156,6 @@ All four numbers should be healthy. At the time this file was written:
 - rows: 800
 - unique_ids: 800
 - unique_texts: 800
-- difficulty_counts: {'easy': 240, 'medium': 400, 'hard': 160}
 - bad_alignment: 0
 
 ## Useful Commands
@@ -202,10 +193,6 @@ At the time this file was written:
 - `data/problems.jsonl`: 183 extracted original problems
 - `data/solutions.jsonl`: 183 solution records
 - `data/generated_problems.jsonl`: 800 generated problems
-
-Recent backup:
-
-- `backups/current_app_20260624_112258/` contains the pre-refresh app/code/data/docs/slides backup, excluding `.git`, existing backups, raw `problem_bank/`, cache dirs, and Finder metadata.
 
 ## Notes About Gemini
 

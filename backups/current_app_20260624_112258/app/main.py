@@ -18,7 +18,6 @@ from problem_bank_tools.utils import DATA_FILES, compact_ws, read_jsonl, slugify
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DATA_DIR = Path(os.getenv("PROBLEM_BANK_DATA_DIR", PROJECT_ROOT / "data"))
 STUDENT_TOPIC_RENAMES = {"Unclassified": "Mixed Review"}
-DIFFICULTY_LEVELS = ("easy", "medium", "hard")
 SYLLABUS_TOPIC_ORDER = [
     "Supply and Demand",
     "Elasticity",
@@ -155,15 +154,6 @@ def active_items_for_topic(topic: str) -> tuple[list[dict[str, Any]], list[dict[
     return generated, []
 
 
-def normalize_difficulty(difficulty: str | None) -> str:
-    value = (difficulty or "").strip().lower()
-    if not value:
-        return ""
-    if value not in DIFFICULTY_LEVELS:
-        raise HTTPException(status_code=400, detail="Unknown difficulty")
-    return value
-
-
 def find_problem(item_type: str, item_id: str) -> dict[str, Any]:
     name = "generated" if item_type == "generated" else "problems"
     id_key = "generated_id" if item_type == "generated" else "problem_id"
@@ -203,10 +193,6 @@ def index(request: Request) -> HTMLResponse:
 def topic_page(request: Request, topic_slug: str) -> HTMLResponse:
     topic = topic_from_slug(topic_slug)
     generated, originals = active_items_for_topic(topic)
-    difficulty_counts = {
-        difficulty: sum(1 for row in generated if row.get("difficulty", "medium") == difficulty)
-        for difficulty in DIFFICULTY_LEVELS
-    }
     return templates.TemplateResponse(
         request,
         "topic.html",
@@ -215,20 +201,14 @@ def topic_page(request: Request, topic_slug: str) -> HTMLResponse:
             "topic_slug": topic_slug,
             "generated_count": len(generated),
             "original_count": len(originals),
-            "difficulty_counts": difficulty_counts,
         },
     )
 
 
 @app.get("/api/problem")
-def api_problem(topic: str, difficulty: str = "", exclude: str = "", last: str = "") -> dict[str, Any]:
-    selected_difficulty = normalize_difficulty(difficulty)
+def api_problem(topic: str, exclude: str = "", last: str = "") -> dict[str, Any]:
     generated, originals = active_items_for_topic(topic)
-    typed_rows: list[tuple[str, dict[str, Any]]] = [
-        ("generated", row)
-        for row in generated
-        if not selected_difficulty or row.get("difficulty", "medium") == selected_difficulty
-    ]
+    typed_rows: list[tuple[str, dict[str, Any]]] = [("generated", row) for row in generated]
     excluded = {item.strip() for item in exclude.split(",") if item.strip()}
     candidates = [
         (item_type, row)

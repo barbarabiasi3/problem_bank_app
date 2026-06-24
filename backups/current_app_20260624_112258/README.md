@@ -9,11 +9,10 @@ The app also includes instructor/admin tooling for inspecting extracted original
 Student-facing behavior:
 
 - Samples only from `data/generated_problems.jsonl`.
-- Lets students choose `easy`, `medium`, or `hard` on a topic page.
 - Keeps solutions out of the initial problem API payload.
 - Reveals solutions only after `Show explained solution`.
 - Displays solutions inline under each subpart.
-- Avoids repeats within a topic/difficulty until that topic/difficulty is exhausted.
+- Avoids repeats within a topic until that topic is exhausted.
 - Shows topic cards with total available problems only.
 - Hides source filenames, exam names, years, and generated/original counts from students.
 
@@ -24,7 +23,6 @@ Generated records should include:
 - `topic`
 - `subtopic`
 - `difficulty`
-- `problem_title`
 - `problem_text`
 - `subparts`
 - `solution`
@@ -77,17 +75,9 @@ Expected current output:
 - 800 generated problems
 - 50 problems per topic
 - 16 topics
-- 15 easy, 25 medium, and 10 hard problems per topic
 - 800 unique generated IDs
 - 800 unique problem texts
 - 0 subpart/solution alignment issues
-
-Problem style:
-
-- Easy problems have 4 guided subparts.
-- Medium problems have 5 linked subparts.
-- Hard problems have 5-6 linked subparts with an extension or changed assumption.
-- All levels should include intuition, interpretation, or policy/business reasoning, not only arithmetic.
 
 The generated bank is written to:
 
@@ -113,7 +103,6 @@ rows = read_jsonl('data/generated_problems.jsonl')
 print('rows', len(rows))
 print('unique_ids', len({r['generated_id'] for r in rows}))
 print('unique_texts', len({r['problem_text'] for r in rows}))
-print('difficulty_counts', {d: sum(r['difficulty'] == d for r in rows) for d in ['easy', 'medium', 'hard']})
 print('bad_alignment', sum(len(r.get('subparts', [])) != len(r.get('solution_subparts', [])) for r in rows))
 PY
 ```
@@ -186,4 +175,3 @@ Logo asset convention:
 - Exact duplicate source files are grouped by hash and only canonical copies are extracted.
 - Admin may show source counts, audit notes, extracted originals, generated variants, disable/enable controls, and export.
 - Student-facing text should not use internal words like `template`.
-- Pre-refresh backup for the June 24, 2026 exam-style bank update: `backups/current_app_20260624_112258/`.

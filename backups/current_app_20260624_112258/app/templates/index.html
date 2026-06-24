@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}MGT 404 Topics{% endblock %}
+{% block content %}
+<section class="hero">
+  <p class="course-kicker">MGT 404: Basics of Economics</p>
+  <h1>Practice Problem Bank</h1>
+  <p class="hero-copy">Choose a topic, generate one problem, and reveal the explained solution only when you are ready.</p>
+</section>
+
+<section class="topic-band" aria-labelledby="topics-heading">
+  <div class="section-heading">
+    <h2 id="topics-heading">Topics</h2>
+    <p>{{ topics|length }} available topic areas</p>
+  </div>
+  <div class="topic-grid">
+    {% for topic in topics %}
+      <a class="topic-card" href="/topic/{{ topic.slug }}">
+        <span class="topic-name">{{ topic.topic }}</span>
+        <span class="topic-meta">{{ topic.available }} available problems</span>
+      </a>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}

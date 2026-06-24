@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+{% block title %}Admin{% endblock %}
+{% block content %}
+<section class="topic-hero compact-hero">
+  <p class="course-kicker">Instructor Console</p>
+  <h1>Problem Bank Admin</h1>
+  <p class="hero-copy">Inspect extracted material, generated variants, audit notes, and export the full bank.</p>
+</section>
+
+<section class="admin-grid">
+  <div class="stat-block">
+    <span class="stat-value">{{ source_count }}</span>
+    <span class="stat-label">Sources</span>
+  </div>
+  <div class="stat-block">
+    <span class="stat-value">{{ problem_count }}</span>
+    <span class="stat-label">Original Problems</span>
+  </div>
+  <div class="stat-block">
+    <span class="stat-value">{{ generated_count }}</span>
+    <span class="stat-label">Generated Variants</span>
+  </div>
+  <div class="stat-block">
+    <span class="stat-value">{{ unverified_count }}</span>
+    <span class="stat-label">Unverified</span>
+  </div>
+</section>
+
+<section class="admin-section">
+  <div class="section-heading">
+    <h2>Controls</h2>
+    <p>Gemini model: {{ gemini_model }}{% if not gemini_configured %}; API key not loaded in this app process{% endif %}</p>
+  </div>
+  <div class="command-row">
+    <a class="primary-button" href="/admin/export">Export full bank</a>
+    <code>python3 scripts/verify_solutions.py --limit 10</code>
+    <code>python3 scripts/generate_variants.py --topic "Supply and Demand" --parent-limit 1 --per-parent 5</code>
+  </div>
+</section>
+
+<section class="admin-section">
+  <div class="section-heading">
+    <h2>Topics</h2>
+    <p>Student-visible topics and active counts</p>
+  </div>
+  <table>
+    <thead><tr><th>Topic</th><th>Generated</th><th>Originals</th></tr></thead>
+    <tbody>
+      {% for topic in topics %}
+        <tr><td>{{ topic.topic }}</td><td>{{ topic.generated }}</td><td>{{ topic.originals }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<section class="admin-section">
+  <div class="section-heading">
+    <h2>Generated Variants</h2>
+    <p>{{ disabled_generated }} disabled. Showing first 200 records.</p>
+  </div>
+  <table>
+    <thead><tr><th>Topic</th><th>ID</th><th>Status</th><th>Action</th></tr></thead>
+    <tbody>
+      {% for item in generated %}
+        <tr>
+          <td>{{ item.topic }}</td>
+          <td><code>{{ item.generated_id }}</code></td>
+          <td>{% if item.disabled %}Disabled{% else %}Active{% endif %}</td>
+          <td>
+            <form method="post" action="/admin/generated/{{ item.generated_id }}/toggle?disabled={% if item.disabled %}false{% else %}true{% endif %}">
+              <button class="table-button" type="submit">{% if item.disabled %}Enable{% else %}Disable{% endif %}</button>
+            </form>
+          </td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<section class="admin-section">
+  <div class="section-heading">
+    <h2>Original Problems</h2>
+    <p>Showing first 200 extracted records</p>
+  </div>
+  <table>
+    <thead><tr><th>Topic</th><th>Status</th><th>Source</th><th>ID</th></tr></thead>
+    <tbody>
+      {% for item in problems %}
+        <tr>
+          <td>{{ item.topic }}</td>
+          <td>{{ item.solution_status }}</td>
+          <td>{{ item.source_file }}</td>
+          <td><code>{{ item.problem_id }}</code></td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<section class="admin-section">
+  <div class="section-heading">
+    <h2>Audit Log</h2>
+    <p>Most recent 40 entries</p>
+  </div>
+  <table>
+    <thead><tr><th>Stage</th><th>Status</th><th>Message</th></tr></thead>
+    <tbody>
+      {% for row in audit %}
+        <tr>
+          <td>{{ row.stage }}</td>
+          <td>{{ row.status }}</td>
+          <td>{{ row.message or row.issue_explanation or row.problem_id }}</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

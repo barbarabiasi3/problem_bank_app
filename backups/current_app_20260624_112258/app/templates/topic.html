@@ -10,21 +10,6 @@
 
 <section class="problem-workspace" data-topic="{{ topic }}">
   <div class="toolbar">
-    <fieldset class="difficulty-control" aria-label="Question difficulty">
-      <legend>Level</legend>
-      <label>
-        <input type="radio" name="difficulty" value="easy">
-        <span>Easy <small>{{ difficulty_counts.easy }}</small></span>
-      </label>
-      <label>
-        <input type="radio" name="difficulty" value="medium" checked>
-        <span>Medium <small>{{ difficulty_counts.medium }}</small></span>
-      </label>
-      <label>
-        <input type="radio" name="difficulty" value="hard">
-        <span>Hard <small>{{ difficulty_counts.hard }}</small></span>
-      </label>
-    </fieldset>
     <button id="generate-problem" class="primary-button" type="button">Generate problem</button>
     <button id="show-solution" class="secondary-button" type="button" disabled>Show explained solution</button>
   </div>
@@ -34,5 +19,5 @@
   <article id="solution-panel" class="solution-panel" aria-live="polite" hidden></article>
 </section>
 
-<script src="{{ url_for('static', path='/app.js') }}?v=20260624-difficulty-bank"></script>
+<script src="{{ url_for('static', path='/app.js') }}"></script>
 {% endblock %}

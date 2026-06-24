@@ -1,6 +1,6 @@
 # MGT 404 Problem Bank App Log
 
-Last updated: June 24, 2026
+Last updated: June 18, 2026
 
 ## Goal
 
@@ -10,7 +10,6 @@ Build a local-to-web teaching app for MGT 404 / Basics of Economics that:
 - Extracts problems and solutions into transparent local data files.
 - Generates a large static practice bank for students.
 - Serves a student-facing app where students choose a topic, generate one problem, and reveal the solution only after clicking.
-- Lets students choose easy, medium, or hard practice problems on each topic page.
 - Serves an instructor/admin app for inspection, disabling generated problems, and exporting the bank.
 - Uses no hard-coded secrets and does not expose solutions in the initial student problem payload.
 
@@ -82,11 +81,9 @@ The generated bank has:
 
 - 16 topics
 - 50 generated problems per topic
-- 15 easy, 25 medium, and 10 hard problems per topic
 - 800 unique generated IDs
 - 800 unique problem texts
-- Matching `subparts` and `solution_subparts` labels for all generated records
-- Exam-style prompts with 4 subparts for easy, 5 for medium, and 5-6 for hard
+- Matching `subparts` and `solution_subparts` counts for all generated records
 
 Current generated topics:
 
@@ -115,13 +112,12 @@ Student side:
 - Do not show generated/original split to students.
 - Do not show source file, exam year, or any origin attribution to students.
 - Student app samples from `data/generated_problems.jsonl` only.
-- Students choose a difficulty level on each topic page; the default is medium.
 - Extracted original problems remain available for admin/audit workflows but are not shown to students.
 - The initial problem API response must not include `solution`, `given_solution`, or `verified_solution`.
 - Solutions are fetched only after clicking `Show explained solution`.
 - Solutions appear inline under each subpart in red.
-- Each topic/difficulty avoids repeats in the browser until that topic/difficulty's available generated set is exhausted.
-- After exhaustion, the topic/difficulty cycle resets but avoids immediately repeating the previous problem when possible.
+- Each topic avoids repeats in the browser until that topic's available generated set is exhausted.
+- After exhaustion, the cycle resets but avoids immediately repeating the previous problem when possible.
 
 Admin side:
 
@@ -140,8 +136,6 @@ python3 scripts/generate_curated_bank.py --per-topic 50
 ```
 
 - The generated bank includes varied firm names, scenarios, wording, subpart prompts, parameters, and solution text.
-- The June 24, 2026 refresh rewrote the generated bank in an exam-style structure inspired by past exams/problem sets and the local slide subset.
-- Problems now include linked subquestions with calculation, interpretation, comparison, and policy/business reasoning instead of only short mechanical calculations.
 - Repetitive wording was explicitly reduced. The generator should not stack an added scenario intro on top of a duplicated base setup.
 - Fake but polished firm names are used, such as Aurora Scooters, BluePeak Batteries, Cobalt Cloud, Crimson Kite, Echo Forge, Flux Fitness, Halo Health, LoomLabs, Meridian Micro, Nebula Noodles, Nova Basket, Polaris Bikes, Prism Produce, Quantum Kettle, Sapphire Solar, Summit Seltzer, Vertex Coffee, Vanta Vacuum, Zenith Zips, and Atlas Droneworks.
 
@@ -170,7 +164,6 @@ Subsequent UI adjustments:
 - Add more spacing between the problem title and the first setup line.
 - Keep solutions red and placed under each subpart.
 - Remove the fake CSS Yale shield. The app now uses an official static logo asset if present and otherwise falls back to text-only branding.
-- Add a compact difficulty selector to topic pages while keeping topic cards limited to total available problems.
 
 Logo asset convention:
 
@@ -227,10 +220,6 @@ Important local URLs:
 - Admin app: `http://127.0.0.1:8000/admin`
 - Health check: `http://127.0.0.1:8000/health`
 
-Recent backup:
-
-- `backups/current_app_20260624_112258/` contains the pre-refresh app/code/data/docs/slides backup, excluding `.git`, existing backups, raw `problem_bank/`, cache dirs, and Finder metadata.
-
 ## Verification Performed
 
 Repeated checks run during development:
@@ -242,13 +231,11 @@ Repeated checks run during development:
   - `/`
   - `/admin`
   - `/api/problem`
-  - `/api/problem?topic=...&difficulty=easy|medium|hard`
   - `/api/solution/...`
 - Confirmed student problem payload does not include solution fields.
 - Confirmed solution endpoint returns `solution_subparts`.
 - Confirmed generated bank has 800 unique IDs and 800 unique problem texts.
 - Confirmed all generated records align subparts and solution subparts.
-- Confirmed every topic has 15 easy, 25 medium, and 10 hard generated problems.
 
 ## Current Running State
 

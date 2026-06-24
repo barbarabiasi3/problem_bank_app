@@ -8,6 +8,9 @@ from typing import Any, Callable
 from .utils import DEFAULT_DATA_DIR, data_path, stable_id, write_jsonl
 
 
+DIFFICULTY_COUNTS = {"easy": 15, "medium": 25, "hard": 10}
+DIFFICULTIES = ("easy", "medium", "hard")
+
 FIRMS = [
     "Aurora Scooters",
     "BluePeak Batteries",
@@ -29,6 +32,42 @@ FIRMS = [
     "Vanta Vacuum",
     "Zenith Zips",
     "Atlas Droneworks",
+    "Brass Lantern",
+    "Civic Thread",
+    "Elm City Foods",
+    "Harbor Analytics",
+    "Juniper Labs",
+    "Keystone Transit",
+    "Long Wharf Roasters",
+    "Maple Circuit",
+    "Oak Street Games",
+    "Sterling Health",
+]
+
+PLACES = [
+    "New Haven",
+    "Providence",
+    "Hartford",
+    "Worcester",
+    "Bridgeport",
+    "Stamford",
+    "Cambridge",
+    "Albany",
+    "Burlington",
+    "Portland",
+]
+
+PRODUCTS = [
+    "meal kits",
+    "bike rentals",
+    "standing desks",
+    "coffee subscriptions",
+    "campus shuttles",
+    "portable batteries",
+    "fitness classes",
+    "software seats",
+    "specialty noodles",
+    "home sensors",
 ]
 
 
@@ -36,22 +75,30 @@ def firm(i: int, offset: int = 0) -> str:
     return FIRMS[(i + offset) % len(FIRMS)]
 
 
+def place(i: int, offset: int = 0) -> str:
+    return PLACES[(i + offset) % len(PLACES)]
+
+
+def product(i: int, offset: int = 0) -> str:
+    return PRODUCTS[(i + offset) % len(PRODUCTS)]
+
+
 def possessive(name: str) -> str:
     return f"{name}'" if name.endswith("s") else f"{name}'s"
 
 
-def money(x: float) -> str:
+def money(x: float, unit: str = "$") -> str:
     sign = "-" if x < 0 else ""
     amount = abs(x)
     if abs(amount - round(amount)) < 1e-8:
-        return f"{sign}${int(round(amount))}"
-    return f"{sign}${amount:.2f}"
+        return f"{sign}{unit}{int(round(amount)):,}"
+    return f"{sign}{unit}{amount:,.2f}"
 
 
 def num(x: float) -> str:
     if abs(x - round(x)) < 1e-8:
-        return str(int(round(x)))
-    return f"{x:.2f}"
+        return f"{int(round(x)):,}"
+    return f"{x:,.2f}"
 
 
 def pct(x: float) -> str:
@@ -66,10 +113,20 @@ def solution_text(solution_parts: list[dict[str, str]]) -> str:
     return "\n\n".join(f"({part['label']}) {part['text']}" for part in solution_parts)
 
 
+def difficulty_for_index(i: int) -> str:
+    position = (i - 1) % 50
+    if position < DIFFICULTY_COUNTS["easy"]:
+        return "easy"
+    if position < DIFFICULTY_COUNTS["easy"] + DIFFICULTY_COUNTS["medium"]:
+        return "medium"
+    return "hard"
+
+
 def make_row(
     topic: str,
     subtopic: str,
     difficulty: str,
+    problem_title: str,
     problem_text: str,
     subparts: list[dict[str, str]],
     solution_subparts: list[dict[str, str]],
@@ -78,20 +135,34 @@ def make_row(
     functions: dict[str, Any] | None = None,
     family: str = "",
 ) -> dict[str, Any]:
+    labels = [part["label"] for part in subparts]
+    solution_labels = [part["label"] for part in solution_subparts]
+    if labels != solution_labels:
+        raise ValueError(f"Subpart/solution mismatch for {topic}: {labels} != {solution_labels}")
+    expected_counts = {"easy": 4, "medium": 5, "hard": (5, 6)}
+    expected = expected_counts[difficulty]
+    if isinstance(expected, tuple):
+        valid_count = len(subparts) in expected
+    else:
+        valid_count = len(subparts) == expected
+    if not valid_count:
+        raise ValueError(f"{topic} {difficulty} has {len(subparts)} subparts.")
+
     solution = solution_text(solution_subparts)
-    generated_id = stable_id("gen", topic, subtopic, problem_text, solution)
+    generated_id = stable_id("gen", topic, subtopic, difficulty, problem_title, problem_text, solution)
     return {
         "generated_id": generated_id,
-        "parent_problem_id": "local_codex_curated_bank",
+        "parent_problem_id": "local_codex_exam_style_bank",
         "topic": topic,
         "subtopic": subtopic,
         "difficulty": difficulty,
+        "problem_title": problem_title,
         "problem_text": problem_text,
         "subparts": subparts,
         "solution": solution,
         "solution_subparts": solution_subparts,
         "concepts_tested": concepts,
-        "variation_notes": f"Local curated bank: {family or subtopic}.",
+        "variation_notes": f"Local exam-style bank: {family or subtopic}.",
         "parameters": parameters,
         "functions": functions or {},
         "quality_checks": {
@@ -100,650 +171,1288 @@ def make_row(
             "not_too_similar_to_parent": True,
             "student_level_appropriate": True,
             "no_answer_leakage": True,
+            "exam_style_structure": True,
         },
         "disabled": False,
-        "model": "local_codex_curated_generator",
+        "model": "local_codex_exam_style_generator",
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
 
 
 def supply_and_demand(i: int) -> dict[str, Any]:
-    f = firm(i)
-    k = i % 5
-    if k == 0:
-        a, b, c, d, tax = 150 + i, 3, 12 + i % 9, 2, 6 + i % 5
-        p0 = (a - c) / (b + d)
-        q0 = a - b * p0
-        pc = (a - c + d * tax) / (b + d)
-        ps = pc - tax
-        q1 = a - b * pc
-        text = f"{f} sells same-day delivery passes in a competitive city market. Demand is Qd = {a} - {b}P and supply is Qs = {c} + {d}P. The city is considering a seller tax of {money(tax)} per pass."
-        qs = parts(("a", "Find the pre-tax equilibrium price and quantity."), ("b", "Find the buyer price, seller price, and quantity after the tax."), ("c", "Briefly interpret who bears more of the tax burden."))
-        ss = parts(("a", f"Set {a} - {b}P = {c} + {d}P. P = {money(p0)} and Q = {num(q0)}."), ("b", f"With the tax, sellers receive Ps = Pc - {tax}. Set {a} - {b}Pc = {c} + {d}(Pc - {tax}). Pc = {money(pc)}, Ps = {money(ps)}, and Q = {num(q1)}."), ("c", f"Buyers pay {money(pc - p0)} more; sellers receive {money(p0 - ps)} less. The larger price change is the larger burden."))
-        return make_row("Supply and Demand", "Tax incidence", "medium", text, qs, ss, ["equilibrium", "tax incidence"], {"a": a, "b": b, "c": c, "d": d, "tax": tax}, family="seller tax")
-    if k == 1:
-        a, b, c, d, shift = 110 + i, 2, 20 + i % 7, 3, 18 + i % 6
+    difficulty = difficulty_for_index(i)
+    f, city, good = firm(i), place(i), product(i)
+    if difficulty == "easy":
+        a, b, c, d, shift = 140 + 2 * i, 2 + i % 2, 20 + i % 7, 2, 18 + i % 8
         p0 = (a - c) / (b + d)
         q0 = a - b * p0
         p1 = (a + shift - c) / (b + d)
         q1 = a + shift - b * p1
-        text = f"{f} launches a new campus product. Initial demand is Qd = {a} - {b}P and supply is Qs = {c} + {d}P. A successful promotion shifts demand outward by {shift} units at every price."
-        qs = parts(("a", "Compute the initial equilibrium."), ("b", "Compute the new equilibrium after the demand shift."), ("c", "Explain what happens to price and quantity."))
-        ss = parts(("a", f"Initial equilibrium solves {a} - {b}P = {c} + {d}P, so P = {money(p0)} and Q = {num(q0)}."), ("b", f"New demand is Qd = {a + shift} - {b}P. Solving gives P = {money(p1)} and Q = {num(q1)}."), ("c", "The outward demand shift raises both equilibrium price and equilibrium quantity."))
-        return make_row("Supply and Demand", "Demand shift", "easy", text, qs, ss, ["demand shift", "equilibrium"], {"a": a, "b": b, "c": c, "d": d, "shift": shift}, family="demand shift")
-    if k == 2:
-        a, b, c, d, ceiling = 140 + i, 4, 8 + i % 8, 2, 20 + i % 5
-        p0 = (a - c) / (b + d)
-        qd = a - b * ceiling
-        qsupply = c + d * ceiling
-        shortage = max(0, qd - qsupply)
-        binding = ceiling < p0
-        b_text = (
-            f"The ceiling is binding because {money(ceiling)} is below the equilibrium price of {money(p0)}."
-            if binding
-            else f"The ceiling is not binding because {money(ceiling)} is {'equal to' if math.isclose(ceiling, p0) else 'above'} the equilibrium price of {money(p0)}."
+        text = (
+            f"{f} is piloting {good} in {city}. Weekly demand is Qd = {a} - {b}P and supply is "
+            f"Qs = {c} + {d}P, where P is the price per unit. After a campus partnership is announced, "
+            f"market research predicts demand will be {shift} units higher at every price. Treat the market "
+            f"as competitive and use this setting to separate the arithmetic of equilibrium from the economic intuition."
         )
-        c_text = (
-            f"At {money(ceiling)}, Qd = {num(qd)} and Qs = {num(qsupply)}, so the shortage is {num(shortage)}."
-            if binding
-            else f"Because the ceiling is not binding, there is no shortage. At {money(ceiling)}, Qd = {num(qd)} and Qs = {num(qsupply)}."
+        qs = parts(
+            ("a", "Find the initial equilibrium price and quantity."),
+            ("b", "Find the new equilibrium after the demand increase."),
+            ("c", "State whether consumers, sellers, or both are doing more trading after the announcement."),
+            ("d", "Explain in one or two sentences why the price movement makes economic sense."),
         )
-        text = f"A regulator caps the price of {possessive(f)} rental permits at {money(ceiling)}. Market demand is Qd = {a} - {b}P and market supply is Qs = {c} + {d}P."
-        qs = parts(("a", "Find the unregulated equilibrium price."), ("b", "Is the price ceiling binding?"), ("c", "If binding, compute the shortage."))
-        ss = parts(("a", f"Set demand equal to supply: {a} - {b}P = {c} + {d}P, so P = {money(p0)}."), ("b", b_text), ("c", c_text))
-        return make_row("Supply and Demand", "Price ceiling", "medium", text, qs, ss, ["price ceiling", "shortage"], {"a": a, "b": b, "c": c, "d": d, "ceiling": ceiling}, family="price ceiling")
-    if k == 3:
-        a, b, c, d, subsidy = 120 + i, 3, 10 + i % 10, 3, 5 + i % 5
+        ss = parts(
+            ("a", f"Set {a} - {b}P = {c} + {d}P. The initial price is {money(p0)} and quantity is {num(q0)}."),
+            ("b", f"New demand is Qd = {a + shift} - {b}P, so P = {money(p1)} and Q = {num(q1)}."),
+            ("c", f"Both sides trade more: quantity rises from {num(q0)} to {num(q1)}."),
+            ("d", "Demand rose at every price, creating excess demand at the old price. Competition bids price up and expands quantity."),
+        )
+        return make_row("Supply and Demand", "Demand shift", difficulty, f"{good.title()} Demand Shift", text, qs, ss, ["equilibrium", "demand shift"], {"a": a, "b": b, "c": c, "d": d, "shift": shift}, family="demand shift")
+
+    if difficulty == "medium":
+        a, b, c, d, tax = 155 + i, 3, 18 + i % 9, 2, 6 + i % 6
         p0 = (a - c) / (b + d)
-        ps = (a - c + b * subsidy) / (b + d)
-        pb = ps - subsidy
-        q1 = a - b * pb
-        text = f"{f} sells a product eligible for a buyer subsidy of {money(subsidy)}. Demand is Qd = {a} - {b}Pb, where Pb is the buyer's out-of-pocket price. Supply is Qs = {c} + {d}Ps, where Ps is the seller's received price."
-        qs = parts(("a", "Find the equilibrium without the subsidy."), ("b", "With the subsidy, find Pb, Ps, and quantity."), ("c", "Why does the quantity rise?"))
-        ss = parts(("a", f"Without subsidy, Pb = Ps = P. Solving gives P = {money(p0)}."), ("b", f"The subsidy means Ps = Pb + {subsidy}. Set {a} - {b}Pb = {c} + {d}(Pb + {subsidy}). Equivalently Ps = {money(ps)}, Pb = {money(pb)}, and Q = {num(q1)}."), ("c", "The subsidy drives a wedge that lowers the buyer price and raises the seller price, increasing quantity traded."))
-        return make_row("Supply and Demand", "Subsidy wedge", "medium", text, qs, ss, ["subsidy", "wedge"], {"a": a, "b": b, "c": c, "d": d, "subsidy": subsidy}, family="buyer subsidy")
-    a, b, c, d, shock = 130 + i, 2, 15 + i % 8, 2, 16 + i % 6
+        q0 = a - b * p0
+        pc = (a - c + d * tax) / (b + d)
+        ps = pc - tax
+        q1 = a - b * pc
+        revenue = tax * q1
+        buyer_burden = pc - p0
+        seller_burden = p0 - ps
+        text = (
+            f"{city} is considering a seller tax on {good}. Before the tax, demand is Qd = {a} - {b}P "
+            f"and supply is Qs = {c} + {d}P. The proposed policy charges sellers {money(tax)} for each unit sold. "
+            f"Local businesses argue they will pay the entire tax, while student groups argue that buyers will face higher prices. "
+            f"Use the model to evaluate both claims."
+        )
+        qs = parts(
+            ("a", "Compute the pre-tax equilibrium price and quantity."),
+            ("b", "Compute the buyer price, seller price, and quantity after the tax."),
+            ("c", "Compute tax revenue."),
+            ("d", "How much of the tax is borne by buyers and how much by sellers?"),
+            ("e", "Use your answer to explain why legal liability and economic incidence are not the same thing."),
+        )
+        ss = parts(
+            ("a", f"Solving {a} - {b}P = {c} + {d}P gives P = {money(p0)} and Q = {num(q0)}."),
+            ("b", f"With Ps = Pc - {tax}, set {a} - {b}Pc = {c} + {d}(Pc - {tax}). Pc = {money(pc)}, Ps = {money(ps)}, and Q = {num(q1)}."),
+            ("c", f"Revenue is tax times quantity: {money(tax)} x {num(q1)} = {money(revenue)}."),
+            ("d", f"Buyers pay {money(buyer_burden)} more per unit and sellers receive {money(seller_burden)} less per unit."),
+            ("e", "The seller writes the check, but market prices adjust. Incidence depends on supply and demand responses, not on who remits the tax."),
+        )
+        return make_row("Supply and Demand", "Tax incidence", difficulty, f"{city} Per-Unit Tax", text, qs, ss, ["tax incidence", "equilibrium", "revenue"], {"a": a, "b": b, "c": c, "d": d, "tax": tax}, family="tax incidence")
+
+    a, b, c, d = 180 + i, 4, 15 + i % 7, 2
+    demand_shift, supply_loss, subsidy = 22 + i % 5, 12 + i % 4, 5 + i % 5
     p0 = (a - c) / (b + d)
     q0 = a - b * p0
-    p1 = (a - (c - shock)) / (b + d)
-    q1 = a - b * p1
-    text = f"A supply disruption hits {possessive(f)} supplier network. Before the disruption, demand is Qd = {a} - {b}P and supply is Qs = {c} + {d}P. Afterward, supply falls by {shock} units at every price."
-    qs = parts(("a", "Find the initial equilibrium."), ("b", "Find the post-disruption equilibrium."), ("c", "Interpret the price and quantity changes."))
-    ss = parts(("a", f"Initial equilibrium gives P = {money(p0)} and Q = {num(q0)}."), ("b", f"New supply is Qs = {c - shock} + {d}P. Solving gives P = {money(p1)} and Q = {num(q1)}."), ("c", "A leftward supply shift raises price and lowers quantity."))
-    return make_row("Supply and Demand", "Supply shock", "easy", text, qs, ss, ["supply shift", "equilibrium"], {"a": a, "b": b, "c": c, "d": d, "shock": shock}, family="supply disruption")
+    p_shock = (a + demand_shift - (c - supply_loss)) / (b + d)
+    q_shock = a + demand_shift - b * p_shock
+    ps = (a + demand_shift - (c - supply_loss) + b * subsidy) / (b + d)
+    pb = ps - subsidy
+    q_sub = a + demand_shift - b * pb
+    spending = subsidy * q_sub
+    text = (
+        f"A city council is studying the market for {good} after two simultaneous changes. Demand in {city} rises by "
+        f"{demand_shift} units at every price because commuting patterns change. At the same time, a supplier shortage lowers supply "
+        f"by {supply_loss} units at every price. Initially Qd = {a} - {b}P and Qs = {c} + {d}P. After the shock, the council considers "
+        f"a buyer subsidy of {money(subsidy)} per unit to keep the market active."
+    )
+    qs = parts(
+        ("a", "Find the initial equilibrium."),
+        ("b", "Find the equilibrium after both the demand increase and the supply decrease, before any subsidy."),
+        ("c", "With the buyer subsidy, find the buyer price, seller price, and quantity."),
+        ("d", "Compute total government spending on the subsidy."),
+        ("e", "Compared with the post-shock no-subsidy outcome, who gains directly from the subsidy?"),
+        ("f", "Explain why a subsidy can raise quantity even though it is costly to the government."),
+    )
+    ss = parts(
+        ("a", f"Initial equilibrium is P = {money(p0)} and Q = {num(q0)}."),
+        ("b", f"Post-shock demand is Qd = {a + demand_shift} - {b}P and supply is Qs = {c - supply_loss} + {d}P, so P = {money(p_shock)} and Q = {num(q_shock)}."),
+        ("c", f"The subsidy implies Ps = Pb + {subsidy}. Solving gives Pb = {money(pb)}, Ps = {money(ps)}, and Q = {num(q_sub)}."),
+        ("d", f"Government spending is {money(subsidy)} x {num(q_sub)} = {money(spending)}."),
+        ("e", "Buyers pay less out of pocket and sellers receive more per unit; the benefit is shared through price adjustments."),
+        ("f", "The subsidy creates a wedge that makes purchases look cheaper to buyers and sales more attractive to sellers, so additional trades occur."),
+    )
+    return make_row("Supply and Demand", "Multiple shocks and subsidy", difficulty, f"{city} Market Stabilization", text, qs, ss, ["demand shift", "supply shift", "subsidy"], {"a": a, "b": b, "c": c, "d": d, "demand_shift": demand_shift, "supply_loss": supply_loss, "subsidy": subsidy}, family="multi-shock subsidy")
 
 
 def elasticity(i: int) -> dict[str, Any]:
-    f = firm(i, 2)
-    k = i % 5
-    if k == 0:
-        p0, p1 = 20 + i % 9, 24 + i % 9
-        q0, q1 = 520 - 3 * i, 455 - 2 * i
+    difficulty = difficulty_for_index(i)
+    f, good = firm(i, 2), product(i, 2)
+    if difficulty == "easy":
+        p0, p1 = 18 + i % 7, 22 + i % 7
+        q0, q1 = 520 + 3 * i, 470 + 2 * i
         e = ((q1 - q0) / q0) / ((p1 - p0) / p0)
-        rev0, rev1 = p0 * q0, p1 * q1
-        text = f"{f} raises the price of a premium snack box from {money(p0)} to {money(p1)}. Weekly sales fall from {q0} to {q1} boxes."
-        qs = parts(("a", "Compute the approximate price elasticity using the original price and quantity as the base."), ("b", "Classify demand as elastic or inelastic."), ("c", "Compare revenue before and after the price change."))
-        ss = parts(("a", f"Elasticity is ({q1} - {q0})/{q0} divided by ({p1} - {p0})/{p0}, which equals {num(e)}."), ("b", f"The absolute value is {num(abs(e))}, so demand is {'elastic' if abs(e) > 1 else 'inelastic'}."), ("c", f"Revenue changes from {money(rev0)} to {money(rev1)}, so it {'rises' if rev1 > rev0 else 'falls'}."))
-        return make_row("Elasticity", "Price elasticity", "easy", text, qs, ss, ["elasticity", "revenue"], {"p0": p0, "p1": p1, "q0": q0, "q1": q1}, family="price experiment")
-    if k == 1:
-        a, b, p = 200 + i, 4, 24 + i % 8
+        r0, r1 = p0 * q0, p1 * q1
+        text = (
+            f"{f} experiments with the price of its {good}. When price rises from {money(p0)} to {money(p1)}, "
+            f"weekly sales fall from {num(q0)} to {num(q1)} units. Management wants more than a calculation: it wants to know "
+            f"whether this kind of price increase is a sensible revenue strategy."
+        )
+        qs = parts(
+            ("a", "Compute the own-price elasticity using the original price and quantity as the base."),
+            ("b", "Classify demand as elastic or inelastic over this change."),
+            ("c", "Compute revenue before and after the price change."),
+            ("d", "Should the firm view this price increase as a revenue success? Explain briefly."),
+        )
+        ss = parts(
+            ("a", f"Elasticity is ({q1} - {q0})/{q0} divided by ({p1} - {p0})/{p0}, which equals {num(e)}."),
+            ("b", f"The absolute value is {num(abs(e))}, so demand is {'elastic' if abs(e) > 1 else 'inelastic'}."),
+            ("c", f"Revenue changes from {money(r0)} to {money(r1)}."),
+            ("d", f"Revenue {'increases' if r1 > r0 else 'decreases'}, so the price increase {'succeeds' if r1 > r0 else 'does not succeed'} on a revenue-only metric."),
+        )
+        return make_row("Elasticity", "Price elasticity experiment", difficulty, f"{good.title()} Price Experiment", text, qs, ss, ["elasticity", "revenue"], {"p0": p0, "p1": p1, "q0": q0, "q1": q1}, family="price experiment")
+
+    if difficulty == "medium":
+        a, b, p = 240 + 2 * i, 4, 28 + i % 8
         q = a - b * p
         e = -b * p / q
-        text = f"{f} estimates demand for a subscription as Q = {a} - {b}P. The current price is {money(p)}."
-        qs = parts(("a", "Find current quantity demanded."), ("b", "Compute point elasticity at the current price."), ("c", "If marginal cost is positive, would a monopolist usually want to operate where demand is inelastic?"))
-        ss = parts(("a", f"Q = {a} - {b}({p}) = {num(q)}."), ("b", f"Point elasticity is (dQ/dP)(P/Q) = -{b} x {p}/{num(q)} = {num(e)}."), ("c", "No. With positive marginal cost, a monopolist avoids the inelastic region because lowering quantity and raising price can increase revenue while reducing cost."))
-        return make_row("Elasticity", "Point elasticity", "medium", text, qs, ss, ["point elasticity", "pricing"], {"a": a, "b": b, "p": p}, family="linear demand")
-    if k == 2:
-        q0, q1, other0, other1 = 900 + 4 * i, 960 + 5 * i, 10 + i % 4, 12 + i % 4
-        cross = ((q1 - q0) / q0) / ((other1 - other0) / other0)
-        text = f"When a rival raises its price from {money(other0)} to {money(other1)}, {possessive(f)} weekly sales rise from {q0} to {q1} units."
-        qs = parts(("a", "Compute the cross-price elasticity."), ("b", "Are the two products substitutes or complements?"), ("c", "What managerial action might this suggest?"))
-        ss = parts(("a", f"Cross-price elasticity is ({q1} - {q0})/{q0} divided by ({other1} - {other0})/{other0} = {num(cross)}."), ("b", "It is positive, so the goods are substitutes."), ("c", "The firm may gain customers when the rival raises price, so monitoring competitor prices is valuable."))
-        return make_row("Elasticity", "Cross-price elasticity", "easy", text, qs, ss, ["cross-price elasticity", "substitutes"], {"q0": q0, "q1": q1, "other0": other0, "other1": other1}, family="cross elasticity")
-    if k == 3:
-        q0, q1, y0, y1 = 400 + 2 * i, 440 + 3 * i, 80 + i, 88 + i
-        inc = ((q1 - q0) / q0) / ((y1 - y0) / y0)
-        text = f"As average customer income rises from {money(y0)} thousand to {money(y1)} thousand, annual purchases of {possessive(f)} service rise from {q0} to {q1}."
-        qs = parts(("a", "Compute income elasticity."), ("b", "Is this a normal or inferior good?"), ("c", "Is it closer to a necessity or a luxury?"))
-        ss = parts(("a", f"Income elasticity is ({q1} - {q0})/{q0} divided by ({y1} - {y0})/{y0} = {num(inc)}."), ("b", "The elasticity is positive, so it is a normal good."), ("c", f"Since the value is {'above' if inc > 1 else 'below'} 1, it is {'more luxury-like' if inc > 1 else 'more necessity-like'}."))
-        return make_row("Elasticity", "Income elasticity", "easy", text, qs, ss, ["income elasticity"], {"q0": q0, "q1": q1, "y0": y0, "y1": y1}, family="income elasticity")
-    p, mc, abs_e = 50 + i % 8, 30 + i % 6, 2.5 + (i % 4) * 0.25
-    markup = (p - mc) / p
-    target = 1 / abs_e
-    text = f"{f} currently charges {money(p)}. Marginal cost is {money(mc)} and the absolute value of demand elasticity at this price is estimated to be {num(abs_e)}."
-    qs = parts(("a", "Compute the current Lerner markup (P - MC)/P."), ("b", "Compare it with the inverse elasticity rule."), ("c", "Is price too high or too low relative to the monopoly optimum?"))
-    ss = parts(("a", f"Markup is ({p} - {mc})/{p} = {num(markup)}."), ("b", f"The inverse elasticity target is 1/{num(abs_e)} = {num(target)}."), ("c", f"The current markup is {'above' if markup > target else 'below'} the target, so price is {'too high' if markup > target else 'too low'} relative to that rule."))
-    return make_row("Elasticity", "Markup rule", "medium", text, qs, ss, ["elasticity", "markup"], {"p": p, "mc": mc, "abs_e": abs_e}, family="inverse elasticity rule")
+        mc = 14 + i % 6
+        markup = (p - mc) / p
+        target = 1 / abs(e)
+        text = (
+            f"{f} estimates demand for a monthly plan as Q = {a} - {b}P. The current price is {money(p)} and marginal cost is "
+            f"{money(mc)}. A manager notices that students in class used both elasticity and markup rules to think about market power, "
+            f"and asks whether the current price is internally consistent with that logic."
+        )
+        qs = parts(
+            ("a", "Find current quantity demanded."),
+            ("b", "Compute point elasticity at the current price."),
+            ("c", "Compute the current Lerner markup, (P - MC)/P."),
+            ("d", "Compare the markup with the inverse elasticity rule."),
+            ("e", "If the firm is a monopolist with positive marginal cost, explain why pricing in the inelastic region would be suspicious."),
+        )
+        ss = parts(
+            ("a", f"Q = {a} - {b}({p}) = {num(q)}."),
+            ("b", f"Point elasticity is (dQ/dP)(P/Q) = -{b} x {p}/{num(q)} = {num(e)}."),
+            ("c", f"The Lerner markup is ({p} - {mc})/{p} = {num(markup)}."),
+            ("d", f"The inverse-elasticity target is 1/{num(abs(e))} = {num(target)}. The current markup is {'above' if markup > target else 'below'} that benchmark."),
+            ("e", "In the inelastic region, a price increase raises revenue while reducing units and costs, so the firm would usually want to raise price."),
+        )
+        return make_row("Elasticity", "Point elasticity and markup", difficulty, "Elasticity-Based Pricing Check", text, qs, ss, ["point elasticity", "markup", "market power"], {"a": a, "b": b, "p": p, "mc": mc}, family="markup rule")
+
+    p0, p1 = 30 + i % 6, 27 + i % 6
+    q0, q1 = 380 + 4 * i, 430 + 3 * i
+    rival0, rival1 = 18 + i % 5, 21 + i % 5
+    qr0, qr1 = 600 + 2 * i, 648 + 3 * i
+    arc = ((q1 - q0) / ((q0 + q1) / 2)) / ((p1 - p0) / ((p0 + p1) / 2))
+    cross = ((qr1 - qr0) / qr0) / ((rival1 - rival0) / rival0)
+    text = (
+        f"{f} is evaluating two pieces of evidence before changing the price of {good}. In its own price test, price fell from "
+        f"{money(p0)} to {money(p1)} and quantity rose from {num(q0)} to {num(q1)}. In the same month, a rival raised price from "
+        f"{money(rival0)} to {money(rival1)}, and {possessive(f)} sales in a comparable market rose from {num(qr0)} to {num(qr1)}. "
+        f"The CEO wants a recommendation that separates own-price sensitivity from substitution against rivals."
+    )
+    qs = parts(
+        ("a", "Compute the arc own-price elasticity from the price test."),
+        ("b", "Compute revenue before and after the price cut."),
+        ("c", "Compute the cross-price elasticity using the rival-price evidence."),
+        ("d", "Are the products substitutes or complements?"),
+        ("e", "Explain one reason the CEO should be cautious about treating the two estimates as the same object."),
+        ("f", "Give a pricing recommendation using both the quantitative and qualitative evidence."),
+    )
+    ss = parts(
+        ("a", f"Arc elasticity is the percent quantity change over the percent price change using midpoints: {num(arc)}."),
+        ("b", f"Revenue changes from {money(p0 * q0)} to {money(p1 * q1)}."),
+        ("c", f"Cross-price elasticity is ({qr1} - {qr0})/{qr0} divided by ({rival1} - {rival0})/{rival0} = {num(cross)}."),
+        ("d", "The cross-price elasticity is positive, so the products are substitutes."),
+        ("e", "Own-price elasticity measures movement along the firm's demand curve; cross-price elasticity measures how rival prices shift demand."),
+        ("f", "If revenue rose after the price cut, lowering price may be attractive; the positive cross elasticity also means rival pricing should be monitored closely."),
+    )
+    return make_row("Elasticity", "Own and cross elasticity", difficulty, "Elasticity Evidence for Pricing", text, qs, ss, ["arc elasticity", "cross-price elasticity", "revenue"], {"p0": p0, "p1": p1, "q0": q0, "q1": q1, "rival0": rival0, "rival1": rival1, "qr0": qr0, "qr1": qr1}, family="multi-elasticity")
 
 
 def taxes_policy(i: int) -> dict[str, Any]:
-    f = firm(i, 4)
-    k = i % 5
-    if k == 0:
-        a, b, c, d, tax = 110 + i, 2, 12 + i % 8, 2, 8
-        p0 = (a - c) / (b + d)
+    difficulty = difficulty_for_index(i)
+    f, city, good = firm(i, 4), place(i, 1), product(i, 4)
+    a, b, c, d = 135 + i, 3, 15 + i % 8, 2
+    p0 = (a - c) / (b + d)
+    q0 = a - b * p0
+    if difficulty == "easy":
+        ceiling = p0 - (3 + i % 4)
+        qd, qsupply = a - b * ceiling, c + d * ceiling
+        shortage = qd - qsupply
+        text = (
+            f"{city} caps the price of {good} at {money(ceiling)} after complaints about affordability. Demand is Qd = {a} - {b}P "
+            f"and supply is Qs = {c} + {d}P. The policy is popular with some buyers, but the mayor wants to know whether it actually "
+            f"helps buyers get the product."
+        )
+        qs = parts(
+            ("a", "Find the unregulated equilibrium price and quantity."),
+            ("b", "Determine whether the price ceiling is binding."),
+            ("c", "Compute the shortage if the ceiling binds."),
+            ("d", "Explain why a lower legal price can still make some buyers worse off."),
+        )
+        ss = parts(
+            ("a", f"Unregulated P = {money(p0)} and Q = {num(q0)}."),
+            ("b", f"The ceiling is binding because {money(ceiling)} is below {money(p0)}."),
+            ("c", f"At the ceiling, Qd = {num(qd)} and Qs = {num(qsupply)}, so the shortage is {num(shortage)}."),
+            ("d", "Some buyers pay less, but others cannot find units at all because quantity supplied falls below quantity demanded."),
+        )
+        return make_row("Taxes and Government Intervention", "Price ceiling", difficulty, f"{city} Price Ceiling", text, qs, ss, ["price ceiling", "shortage"], {"a": a, "b": b, "c": c, "d": d, "ceiling": ceiling}, family="price ceiling")
+
+    if difficulty == "medium":
+        tax = 7 + i % 5
         pc = (a - c + d * tax) / (b + d)
         ps = pc - tax
-        q0 = a - b * p0
         q1 = a - b * pc
+        revenue = tax * q1
         dwl = 0.5 * tax * (q0 - q1)
-        text = f"A per-unit tax of {money(tax)} is proposed for the market in which {f} operates. Demand is Qd = {a} - {b}P and supply is Qs = {c} + {d}P."
-        qs = parts(("a", "Find quantity before and after the tax."), ("b", "Compute deadweight loss."), ("c", "Why is there deadweight loss?"))
-        ss = parts(("a", f"Before tax, P = {money(p0)} and Q = {num(q0)}. After tax, Pc = {money(pc)}, Ps = {money(ps)}, and Q = {num(q1)}."), ("b", f"DWL = 0.5 x tax x quantity reduction = 0.5 x {tax} x {num(q0 - q1)} = {money(dwl)}."), ("c", "Some mutually beneficial trades no longer occur because the tax wedge raises buyer cost above seller receipt."))
-        return make_row("Taxes and Government Intervention", "Tax deadweight loss", "medium", text, qs, ss, ["tax", "deadweight loss"], {"a": a, "b": b, "c": c, "d": d, "tax": tax}, family="tax DWL")
-    if k == 1:
-        a, b, c, d, floor = 100 + i, 2, 8 + i % 6, 2, 34 + i % 4
-        p0 = (a - c) / (b + d)
-        qd, qsupply = a - b * floor, c + d * floor
-        text = f"The city sets a minimum price of {money(floor)} for permits sold through {f}. Demand is Qd = {a} - {b}P and supply is Qs = {c} + {d}P."
-        qs = parts(("a", "Find the competitive price."), ("b", "Is the floor binding?"), ("c", "Compute excess supply if it binds."))
-        ss = parts(("a", f"Competitive price is ({a} - {c})/({b} + {d}) = {money(p0)}."), ("b", f"The floor is {'binding' if floor > p0 else 'not binding'} because it is {'above' if floor > p0 else 'below'} equilibrium."), ("c", f"At the floor, Qs - Qd = {num(qsupply)} - {num(qd)} = {num(qsupply - qd)}."))
-        return make_row("Taxes and Government Intervention", "Price floor", "medium", text, qs, ss, ["price floor"], {"a": a, "b": b, "c": c, "d": d, "floor": floor}, family="price floor")
-    if k == 2:
-        a, b, c, d, ceiling = 130 + i, 3, 6 + i % 7, 2, 22 + i % 4
-        p0 = (a - c) / (b + d)
-        qd, qsupply = a - b * ceiling, c + d * ceiling
-        text = f"A consumer-protection rule caps the price of {possessive(f)} service at {money(ceiling)}. Demand is Qd = {a} - {b}P and supply is Qs = {c} + {d}P."
-        qs = parts(("a", "Find the market-clearing price."), ("b", "Does the ceiling bind?"), ("c", "If it binds, who is rationed and by how much?"))
-        ss = parts(("a", f"Market-clearing price is {money(p0)}."), ("b", f"The ceiling is {'binding' if ceiling < p0 else 'not binding'} because it is {'below' if ceiling < p0 else 'above'} equilibrium."), ("c", f"If binding, buyers are rationed by the shortage Qd - Qs = {num(qd - qsupply)}."))
-        return make_row("Taxes and Government Intervention", "Price ceiling", "medium", text, qs, ss, ["price ceiling", "shortage"], {"a": a, "b": b, "c": c, "d": d, "ceiling": ceiling}, family="price ceiling")
-    if k == 3:
-        a, b, c, d, subsidy = 100 + i, 2, 14 + i % 6, 2, 6
-        p0 = (a - c) / (b + d)
-        ps = (a - c + b * subsidy) / (b + d)
-        pb = ps - subsidy
-        q1 = a - b * pb
-        text = f"The state offers buyers of {possessive(f)} product a subsidy of {money(subsidy)} per unit. Demand is Qd = {a} - {b}Pb and supply is Qs = {c} + {d}Ps."
-        qs = parts(("a", "Find the no-subsidy equilibrium price."), ("b", "Find buyer price, seller price, and quantity with the subsidy."), ("c", "Who receives the subsidy check, and why is that not the same as economic incidence?"))
-        ss = parts(("a", f"No subsidy gives P = {money(p0)}."), ("b", f"With Ps = Pb + {subsidy}, solving gives Ps = {money(ps)}, Pb = {money(pb)}, Q = {num(q1)}."), ("c", "Legal receipt is about who gets the check; economic incidence is about how market prices change."))
-        return make_row("Taxes and Government Intervention", "Subsidy incidence", "medium", text, qs, ss, ["subsidy", "incidence"], {"a": a, "b": b, "c": c, "d": d, "subsidy": subsidy}, family="subsidy")
-    a, b, c, d, cap = 120 + i, 3, 10 + i % 6, 2, 48 + i % 8
-    p_quota = (a - c - cap) / b if b else 0
-    domestic = c + d * p_quota
-    text = f"Imports of an input used by {f} are capped at {cap} units. Domestic demand is Qd = {a} - {b}P and domestic supply is Qs = {c} + {d}P."
-    qs = parts(("a", "Write the market-clearing condition with the import quota."), ("b", "Solve for the domestic price."), ("c", "Find domestic production at that price."))
-    ss = parts(("a", f"With quota imports, Qd = Qs + {cap}."), ("b", f"{a} - {b}P = {c} + {d}P + {cap}, so P = {money(p_quota)}."), ("c", f"Domestic production is Qs = {c} + {d}({num(p_quota)}) = {num(domestic)}."))
-    return make_row("Taxes and Government Intervention", "Import quota", "hard", text, qs, ss, ["quota", "domestic price"], {"a": a, "b": b, "c": c, "d": d, "quota": cap}, family="quota")
+        text = (
+            f"The state proposes a per-unit excise tax of {money(tax)} on {good} sold by firms such as {f}. Market demand is "
+            f"Qd = {a} - {b}P and supply is Qs = {c} + {d}P. Opponents argue the tax is too high for firms to absorb and will create "
+            f"a large efficiency loss. Use the model to evaluate those two claims."
+        )
+        qs = parts(
+            ("a", "Find the pre-tax equilibrium."),
+            ("b", "Find buyer price, seller price, and quantity after the tax."),
+            ("c", "Compute tax revenue and deadweight loss."),
+            ("d", "Which side bears more of the tax burden?"),
+            ("e", "Explain why inelastic demand would weaken the deadweight-loss objection."),
+        )
+        ss = parts(
+            ("a", f"Before the tax, P = {money(p0)} and Q = {num(q0)}."),
+            ("b", f"After the tax, Pc = {money(pc)}, Ps = {money(ps)}, and Q = {num(q1)}."),
+            ("c", f"Revenue is {money(revenue)}. DWL is 0.5 x {money(tax)} x {num(q0 - q1)} = {money(dwl)}."),
+            ("d", f"Buyers pay {money(pc - p0)} more and sellers receive {money(p0 - ps)} less, so the larger change indicates the larger burden."),
+            ("e", "If demand is inelastic, quantity falls by less, so fewer mutually beneficial trades are lost."),
+        )
+        return make_row("Taxes and Government Intervention", "Excise tax", difficulty, f"{good.title()} Excise Tax", text, qs, ss, ["tax", "deadweight loss", "incidence"], {"a": a, "b": b, "c": c, "d": d, "tax": tax}, family="excise tax")
+
+    floor = p0 + (4 + i % 4)
+    qd, qsupply = a - b * floor, c + d * floor
+    surplus = qsupply - qd
+    buyback = floor * surplus
+    text = (
+        f"To stabilize incomes for local suppliers of {good}, {city} considers a price floor of {money(floor)}. Demand is "
+        f"Qd = {a} - {b}P and supply is Qs = {c} + {d}P. One proposal simply mandates the floor; another has the government buy any "
+        f"unsold units at the floor price. The council wants to understand the tradeoffs before voting."
+    )
+    qs = parts(
+        ("a", "Find the competitive equilibrium."),
+        ("b", "Show whether the price floor is binding."),
+        ("c", "Compute quantity demanded, quantity supplied, and excess supply at the floor."),
+        ("d", "If the government buys the excess supply, compute the budget cost."),
+        ("e", "Identify one group that gains and one group that loses from the floor."),
+        ("f", "Explain why a policy that raises the price received by sellers can still waste resources."),
+    )
+    ss = parts(
+        ("a", f"Competitive P = {money(p0)} and Q = {num(q0)}."),
+        ("b", f"The floor is binding because {money(floor)} is above the competitive price."),
+        ("c", f"At the floor, Qd = {num(qd)} and Qs = {num(qsupply)}, so excess supply is {num(surplus)}."),
+        ("d", f"The buyback cost is {money(floor)} x {num(surplus)} = {money(buyback)}."),
+        ("e", "Sellers who sell at the floor gain from a higher price; buyers lose from paying more and buying less."),
+        ("f", "Extra units are produced even though buyers do not value them at the floor price, and a buyback can spend public funds on unsold output."),
+    )
+    return make_row("Taxes and Government Intervention", "Price floor and surplus", difficulty, f"{city} Price Floor", text, qs, ss, ["price floor", "excess supply", "government purchase"], {"a": a, "b": b, "c": c, "d": d, "floor": floor}, family="price floor")
 
 
 def trade_welfare(i: int) -> dict[str, Any]:
-    f = firm(i, 7)
-    k = i % 5
-    a, b, d = 150 + i, 3, 2
-    if k == 0:
-        pw, tariff = 20 + i % 6, 5 + i % 4
-        qd0, qs0 = a - b * pw, d * pw
-        p1 = pw + tariff
-        qd1, qs1 = a - b * p1, d * p1
-        imports = qd1 - qs1
-        text = f"{f} uses an imported component. Domestic demand is Qd = {a} - {b}P, domestic supply is Qs = {d}P, and the world price is {money(pw)}. A tariff of {money(tariff)} is proposed."
-        qs = parts(("a", "Find imports under free trade."), ("b", "Find imports after the tariff."), ("c", "Compute tariff revenue."))
-        ss = parts(("a", f"At {money(pw)}, Qd = {num(qd0)}, Qs = {num(qs0)}, so imports are {num(qd0 - qs0)}."), ("b", f"The tariff raises domestic price to {money(p1)}. Qd = {num(qd1)}, Qs = {num(qs1)}, imports = {num(imports)}."), ("c", f"Revenue is {money(tariff)} x {num(imports)} = {money(tariff * imports)}."))
-        return make_row("Trade and Welfare", "Tariff", "medium", text, qs, ss, ["tariff", "imports"], {"a": a, "b": b, "d": d, "world_price": pw, "tariff": tariff}, family="tariff")
-    if k == 1:
-        pw, quota = 18 + i % 5, 35 + i % 10
-        p = (a - quota) / (b + d)
-        qd, qsupply = a - b * p, d * p
-        text = f"Policy makers cap imports of a material used by {f} at {quota} units. Domestic demand is Qd = {a} - {b}P and domestic supply is Qs = {d}P."
-        qs = parts(("a", "Write the equilibrium condition under the quota."), ("b", "Find domestic price."), ("c", "Find domestic supply and imports."))
-        ss = parts(("a", f"Demand must equal domestic supply plus quota: {a} - {b}P = {d}P + {quota}."), ("b", f"Solving gives P = {money(p)}."), ("c", f"Domestic supply is {num(qsupply)} and imports are {quota}; total consumption is {num(qd)}."))
-        return make_row("Trade and Welfare", "Quota", "hard", text, qs, ss, ["quota", "imports"], {"a": a, "b": b, "d": d, "quota": quota, "world_price": pw}, family="import quota")
-    if k == 2:
-        pw = 42 + i % 7
-        c, d2 = 10 + i % 6, 2
-        qd, qsupply = a - b * pw, c + d2 * pw
-        text = f"{possessive(f)} home country is considering opening to free trade. Domestic demand is Qd = {a} - {b}P, domestic supply is Qs = {c} + {d2}P, and the world price is {money(pw)}."
-        qs = parts(("a", "At the world price, does the country import or export?"), ("b", "How many units are traded internationally?"), ("c", "Who benefits from opening trade in this case?"))
-        trade = qsupply - qd
-        ss = parts(("a", f"At {money(pw)}, Qd = {num(qd)} and Qs = {num(qsupply)}. Since supply exceeds demand, the country exports."), ("b", f"Exports are Qs - Qd = {num(trade)}."), ("c", "Domestic producers benefit from the higher selling opportunity; domestic consumers face the world price."))
-        return make_row("Trade and Welfare", "Exports", "medium", text, qs, ss, ["exports", "world price"], {"a": a, "b": b, "c": c, "d": d2, "world_price": pw}, family="export market")
-    if k == 3:
-        pw, tariff = 16 + i % 5, 4
-        p1 = pw + tariff
-        qd0, qs0 = a - b * pw, d * pw
-        qd1, qs1 = a - b * p1, d * p1
-        text = f"{possessive(f)} procurement team wants to know how a tariff changes domestic consumption. Demand is Qd = {a} - {b}P, domestic supply is Qs = {d}P, the world price is {money(pw)}, and the tariff is {money(tariff)}."
-        qs = parts(("a", "Compute the change in domestic consumption."), ("b", "Compute the change in domestic production."), ("c", "Compute the change in imports."))
-        ss = parts(("a", f"Consumption falls from {num(qd0)} to {num(qd1)}, a change of {num(qd1 - qd0)}."), ("b", f"Domestic production rises from {num(qs0)} to {num(qs1)}, a change of {num(qs1 - qs0)}."), ("c", f"Imports fall from {num(qd0 - qs0)} to {num(qd1 - qs1)}."))
-        return make_row("Trade and Welfare", "Tariff quantity effects", "easy", text, qs, ss, ["tariff", "consumption"], {"a": a, "b": b, "d": d, "world_price": pw, "tariff": tariff}, family="tariff quantities")
-    pw, tariff = 20, 5 + i % 5
-    qd0, qs0 = a - b * pw, d * pw
-    p1 = pw + tariff
-    qd1, qs1 = a - b * p1, d * p1
-    text = f"A lobby asks for a tariff on the imported component used by {f}. Demand is Qd = {a} - {b}P and supply is Qs = {d}P. The world price is {money(pw)} and the proposed tariff is {money(tariff)}."
-    qs = parts(("a", "Who gains and who loses from the tariff?"), ("b", "Compute government revenue."), ("c", "Why is total surplus lower than under free trade?"))
-    ss = parts(("a", f"Consumers lose from the price increase to {money(p1)}; domestic producers gain because their output rises from {num(qs0)} to {num(qs1)}."), ("b", f"Revenue is {money(tariff)} x imports {num(qd1 - qs1)} = {money(tariff * (qd1 - qs1))}."), ("c", "The tariff creates production and consumption distortions: some efficient imports are replaced or not consumed."))
-    return make_row("Trade and Welfare", "Tariff welfare", "medium", text, qs, ss, ["tariff", "surplus"], {"a": a, "b": b, "d": d, "world_price": pw, "tariff": tariff}, family="welfare")
+    difficulty = difficulty_for_index(i)
+    good, city = product(i, 5), place(i, 2)
+    a, b, c, d = 90 + i, 2, 10 + i % 8, 1
+    p_aut = (a - c) / (b + d)
+    q_aut = a - b * p_aut
+    pw = max(8, p_aut - (5 + i % 5))
+    qd_ft, qs_ft = a - b * pw, c + d * pw
+    imports = qd_ft - qs_ft
+    if difficulty == "easy":
+        text = (
+            f"{city} is small relative to the world market for {good}. Domestic demand is Qd = {a} - {b}P and domestic supply is "
+            f"Qs = {c} + {d}P. The world price is {money(pw)}, and trade is initially free. The question is not only whether imports occur, "
+            f"but who is likely to favor free trade."
+        )
+        qs = parts(
+            ("a", "Find the no-trade equilibrium price and quantity."),
+            ("b", "At the world price, compute domestic consumption and domestic production."),
+            ("c", "Does the country import or export, and by how much?"),
+            ("d", "Identify the domestic winners and losers from opening to trade."),
+        )
+        ss = parts(
+            ("a", f"Autarky P = {money(p_aut)} and Q = {num(q_aut)}."),
+            ("b", f"At {money(pw)}, Qd = {num(qd_ft)} and Qs = {num(qs_ft)}."),
+            ("c", f"Since Qd > Qs, the country imports {num(imports)} units."),
+            ("d", "Consumers gain from the lower price; domestic producers lose because they sell less at a lower price."),
+        )
+        return make_row("Trade and Welfare", "Free trade", difficulty, f"Opening the {good.title()} Market", text, qs, ss, ["autarky", "imports", "gains from trade"], {"a": a, "b": b, "c": c, "d": d, "world_price": pw}, family="free trade")
+
+    if difficulty == "medium":
+        tariff = 3 + i % 4
+        pt = pw + tariff
+        qd_t, qs_t = a - b * pt, c + d * pt
+        imports_t = qd_t - qs_t
+        revenue = tariff * imports_t
+        text = (
+            f"After a period of free trade in {good}, the government imposes an import tariff of {money(tariff)} per unit. Domestic demand "
+            f"is Qd = {a} - {b}P, domestic supply is Qs = {c} + {d}P, and the world price is {money(pw)}. Assume the country is small, so the "
+            f"world price itself does not change."
+        )
+        qs = parts(
+            ("a", "Under free trade, compute imports."),
+            ("b", "With the tariff, compute the domestic price, consumption, production, and imports."),
+            ("c", "Compute government tariff revenue."),
+            ("d", "Relative to free trade, state what happens to domestic consumers and producers."),
+            ("e", "Explain why a tariff can raise revenue but still reduce total surplus."),
+        )
+        ss = parts(
+            ("a", f"Free-trade imports are {num(imports)} units."),
+            ("b", f"The domestic price is {money(pt)}. Qd = {num(qd_t)}, Qs = {num(qs_t)}, so imports are {num(imports_t)}."),
+            ("c", f"Tariff revenue is {money(tariff)} x {num(imports_t)} = {money(revenue)}."),
+            ("d", "Consumers lose from the higher price; domestic producers gain because they sell more at that higher price."),
+            ("e", "Some lost consumer surplus becomes producer surplus or government revenue, but some becomes deadweight loss from inefficiently low consumption and high domestic production."),
+        )
+        return make_row("Trade and Welfare", "Import tariff", difficulty, f"{good.title()} Tariff", text, qs, ss, ["tariff", "imports", "surplus"], {"a": a, "b": b, "c": c, "d": d, "world_price": pw, "tariff": tariff}, family="tariff")
+
+    tariff = 4 + i % 3
+    pt = pw + tariff
+    qd_t, qs_t = a - b * pt, c + d * pt
+    imports_t = qd_t - qs_t
+    quota = max(1, imports_t - (2 + i % 3))
+    p_quota = (a - c - quota) / (b + d)
+    qd_q, qs_q = a - b * p_quota, c + d * p_quota
+    text = (
+        f"Lawmakers are comparing a tariff and a quota in the market for {good}. Domestic demand is Qd = {a} - {b}P, domestic supply is "
+        f"Qs = {c} + {d}P, and the world price is {money(pw)}. A tariff of {money(tariff)} would raise the domestic price to {money(pt)}. "
+        f"An alternative quota would cap imports at {num(quota)} units."
+    )
+    qs = parts(
+        ("a", "Compute free-trade imports."),
+        ("b", "Compute imports and tariff revenue under the tariff."),
+        ("c", "Find the domestic price under the quota."),
+        ("d", "Compare domestic consumption and production under the tariff and quota."),
+        ("e", "Who receives the scarcity value created by the quota? Why does that matter?"),
+        ("f", "If the policy goal is total domestic surplus, which policy concern should receive the most weight?"),
+    )
+    ss = parts(
+        ("a", f"Free-trade imports are {num(imports)}."),
+        ("b", f"Under the tariff, imports are {num(imports_t)} and revenue is {money(tariff * imports_t)}."),
+        ("c", f"Set Qd - Qs = {num(quota)}. The quota price is {money(p_quota)}."),
+        ("d", f"Under the quota, Qd = {num(qd_q)} and Qs = {num(qs_q)}; under the tariff, Qd = {num(qd_t)} and Qs = {num(qs_t)}."),
+        ("e", "Quota rents go to whoever owns the import licenses unless the government auctions them; unlike tariff revenue, they need not go to the government."),
+        ("f", "The key concern is deadweight loss and rent transfer: both policies restrict mutually beneficial trade, but the quota can also transfer rents away from the public budget."),
+    )
+    return make_row("Trade and Welfare", "Tariff versus quota", difficulty, "Trade Policy Comparison", text, qs, ss, ["quota", "tariff", "quota rents"], {"a": a, "b": b, "c": c, "d": d, "world_price": pw, "tariff": tariff, "quota": quota}, family="tariff quota")
 
 
 def production_costs(i: int) -> dict[str, Any]:
-    f = firm(i, 9)
-    k = i % 5
-    if k == 0:
-        fixed, v, price = 90 + i, 6 + i % 6, 28 + i % 8
-        q = (price - v) / 2
-        profit = price * q - fixed - v * q - q**2
-        text = f"{f} has short-run cost C(q) = {fixed} + {v}q + q^2 and sells in a competitive market at price {money(price)}."
-        qs = parts(("a", "Find marginal cost."), ("b", "Choose output."), ("c", "Compute profit."))
-        ss = parts(("a", f"MC = {v} + 2q."), ("b", f"Set P = MC: {price} = {v} + 2q, so q = {num(q)}."), ("c", f"Profit is Pq - C(q) = {money(profit)}."))
-        return make_row("Production and Costs", "Short-run cost", "medium", text, qs, ss, ["marginal cost", "profit"], {"fixed": fixed, "v": v, "price": price}, {"cost": f"C(q)={fixed}+{v}q+q^2"}, family="short-run output")
-    if k == 1:
-        w, r, q = 20 + i % 5, 5 + i % 4, 100 + 5 * i
-        # Production q = sqrt(LK). Cost min gives K/L = w/r and LK=q^2.
-        l = q * math.sqrt(r / w)
-        kk = q * math.sqrt(w / r)
-        cost = w * l + r * kk
-        text = f"{f} produces output with q = sqrt(LK). It must produce q = {q}. Labor costs {money(w)} and capital costs {money(r)}."
-        qs = parts(("a", "Write the tangency condition for cost minimization."), ("b", "Find cost-minimizing L and K."), ("c", "Compute total cost."))
-        ss = parts(("a", f"MPL/MPK = K/L must equal w/r = {w}/{r}. Thus K/L = {num(w/r)}."), ("b", f"Using LK = q^2 and K/L = w/r gives L = {num(l)} and K = {num(kk)}."), ("c", f"Cost is wL + rK = {money(cost)}."))
-        return make_row("Production and Costs", "Cost minimization", "hard", text, qs, ss, ["cost minimization", "input choice"], {"w": w, "r": r, "q": q}, {"production": "q=sqrt(LK)"}, family="input choice")
-    if k == 2:
-        fixed, v = 64 + i, 8 + i % 5
-        q_min = math.sqrt(fixed)
+    difficulty = difficulty_for_index(i)
+    f, good = firm(i, 6), product(i, 6)
+    if difficulty == "easy":
+        fixed, v, q = 120 + 4 * (i % 6), 12 + i % 5, 8 + i % 6
+        total = fixed + v * q + q**2
+        mc = v + 2 * q
+        atc = total / q
+        avc = v + q
+        text = (
+            f"{f} produces {good} with daily cost C(q) = {fixed} + {v}q + q^2. A team member wants to price by dividing total cost "
+            f"by output, while another argues that the next unit should be evaluated using marginal cost. Use q = {q} to clarify the difference."
+        )
+        qs = parts(
+            ("a", "Compute total cost at q."),
+            ("b", "Compute average total cost and average variable cost at q."),
+            ("c", "Compute marginal cost at q."),
+            ("d", "Explain which cost concept is relevant for deciding whether to produce one more unit."),
+        )
+        ss = parts(
+            ("a", f"C({q}) = {money(total)}."),
+            ("b", f"ATC = {money(total)}/{q} = {money(atc)}. AVC = ({v}q + q^2)/q = {money(avc)}."),
+            ("c", f"MC(q) = {v} + 2q, so MC({q}) = {money(mc)}."),
+            ("d", "The one-more-unit decision uses marginal cost, because fixed and already-incurred costs do not change with that unit."),
+        )
+        return make_row("Production and Costs", "Cost concepts", difficulty, "Average Cost Versus Marginal Cost", text, qs, ss, ["marginal cost", "average cost"], {"fixed": fixed, "v": v, "q": q}, {"cost": f"C(q)={fixed}+{v}q+q^2"}, family="cost concepts")
+
+    if difficulty == "medium":
+        fixed, v, price = 144 + 4 * (i % 5), 18 + i % 4, 46 + i % 8
+        qstar = max(0, (price - v) / 2)
+        profit = price * qstar - fixed - v * qstar - qstar**2
         min_atc = v + 2 * math.sqrt(fixed)
-        text = f"{possessive(f)} long-run cost is C(q) = {fixed} + {v}q + q^2."
-        qs = parts(("a", "Write average total cost."), ("b", "Find the output that minimizes average total cost."), ("c", "Find minimum average total cost."))
-        ss = parts(("a", f"ATC = {fixed}/q + {v} + q."), ("b", f"Minimize {fixed}/q + q. The minimum occurs at q = sqrt({fixed}) = {num(q_min)}."), ("c", f"Minimum ATC is {v} + 2sqrt({fixed}) = {money(min_atc)}."))
-        return make_row("Production and Costs", "Minimum efficient scale", "medium", text, qs, ss, ["average cost", "scale"], {"fixed": fixed, "v": v}, {"cost": f"C(q)={fixed}+{v}q+q^2"}, family="ATC")
-    if k == 3:
-        q1, cost1, q2, cost2 = 50 + i, 500 + 8 * i, 80 + i, 710 + 10 * i
-        mc = (cost2 - cost1) / (q2 - q1)
-        text = f"{f} observes total cost of {money(cost1)} at {q1} units and {money(cost2)} at {q2} units over the relevant range."
-        qs = parts(("a", "Estimate marginal cost over this range."), ("b", "If price is above this estimate, should output expand locally?"), ("c", "What caveat applies to this estimate?"))
-        ss = parts(("a", f"Marginal cost is approximately Delta C / Delta q = ({cost2} - {cost1})/({q2} - {q1}) = {money(mc)}."), ("b", "Yes, if price exceeds marginal cost, expanding output raises profit locally."), ("c", "This is an average slope over a range, not necessarily the exact marginal cost at every quantity."))
-        return make_row("Production and Costs", "Marginal cost estimate", "easy", text, qs, ss, ["marginal cost"], {"q1": q1, "cost1": cost1, "q2": q2, "cost2": cost2}, family="cost slope")
-    a, alpha = 1 + (i % 3), 0.5
-    text = f"{f} doubles both labor and capital in a production process described by q = {a}L^0.5K^0.5."
-    qs = parts(("a", "Does output less than double, exactly double, or more than double?"), ("b", "Classify returns to scale."), ("c", "Why does this matter for long-run expansion?"))
-    ss = parts(("a", "Doubling both inputs multiplies output by 2^0.5 x 2^0.5 = 2, so output exactly doubles."), ("b", "The technology has constant returns to scale."), ("c", "With constant returns, scaling the plant up does not by itself lower or raise unit input needs."))
-    return make_row("Production and Costs", "Returns to scale", "easy", text, qs, ss, ["returns to scale"], {"a": a, "alpha": alpha}, {"production": f"q={a}L^0.5K^0.5"}, family="returns to scale")
+        text = (
+            f"{f} is a small producer in a competitive market for {good}. Its short-run cost is C(q) = {fixed} + {v}q + q^2, and the "
+            f"market price is {money(price)}. The fixed cost is unavoidable this month, but not in the long run. Management asks whether "
+            f"the firm should produce now and whether the industry should expect entry or exit later."
+        )
+        qs = parts(
+            ("a", "Find the profit-maximizing quantity using P = MC."),
+            ("b", "Compute short-run profit at that quantity."),
+            ("c", "Should the firm produce or shut down this month?"),
+            ("d", "Compute the minimum average total cost."),
+            ("e", "Use the long-run logic of entry and exit to predict pressure on market price."),
+        )
+        ss = parts(
+            ("a", f"MC = {v} + 2q. Setting {price} = {v} + 2q gives q = {num(qstar)}."),
+            ("b", f"Profit is Pq - C(q) = {money(profit)}."),
+            ("c", f"The firm produces because price exceeds minimum AVC, which is {money(v)} for this cost function."),
+            ("d", f"ATC = {fixed}/q + {v} + q, minimized at q = sqrt({fixed}); min ATC = {money(min_atc)}."),
+            ("e", f"Since price is {'above' if price > min_atc else 'below'} min ATC, long-run forces point toward {'entry and falling price' if price > min_atc else 'exit and rising price'}."),
+        )
+        return make_row("Production and Costs", "Short run and long run cost", difficulty, "Production Decision with Fixed Cost", text, qs, ss, ["P=MC", "shutdown", "entry"], {"fixed": fixed, "v": v, "price": price}, {"cost": f"C(q)={fixed}+{v}q+q^2"}, family="short run long run")
+
+    w, r, q = 16 + i % 5, 25 + i % 6, 20 + i % 5
+    lstar = q * math.sqrt(r / w)
+    kstar = q * math.sqrt(w / r)
+    cost = w * lstar + r * kstar
+    text = (
+        f"{f} can produce {good} using labor L and machine time K according to q = sqrt(LK). Labor costs {money(w)} per unit and "
+        f"machine time costs {money(r)} per unit. The operations team needs q = {q} units for a contract and asks whether simply using "
+        f"equal amounts of L and K is cost-minimizing."
+    )
+    qs = parts(
+        ("a", "Write the cost-minimization problem."),
+        ("b", "Use the tangency condition to find the cost-minimizing ratio of K to L."),
+        ("c", "Find the cost-minimizing input quantities."),
+        ("d", "Compute the minimized cost."),
+        ("e", "If labor becomes more expensive, what should happen to the input mix?"),
+        ("f", "Explain why equal physical quantities of inputs are generally not the same as cost minimization."),
+    )
+    ss = parts(
+        ("a", f"Minimize {w}L + {r}K subject to sqrt(LK) = {q}, or LK = {q**2}."),
+        ("b", f"The tangency condition gives K/L = w/r = {num(w / r)}."),
+        ("c", f"L = q sqrt(r/w) = {num(lstar)} and K = q sqrt(w/r) = {num(kstar)}."),
+        ("d", f"Minimized cost is {money(w * lstar)} + {money(r * kstar)} = {money(cost)}."),
+        ("e", "The firm should substitute away from labor and toward machine time. Since K/L = w/r, a higher labor wage raises the machine-time-to-labor ratio."),
+        ("f", "Cost minimization equalizes marginal product per dollar, not raw units. Input prices matter."),
+    )
+    return make_row("Production and Costs", "Cost minimization", difficulty, "Choosing Inputs for a Contract", text, qs, ss, ["cost minimization", "input choice"], {"w": w, "r": r, "q": q}, {"production": "q=sqrt(LK)"}, family="cost minimization")
 
 
 def perfect_competition(i: int) -> dict[str, Any]:
-    f = firm(i, 11)
-    k = i % 5
-    if k == 0:
-        n, a, b, v = 20 + i % 6, 900 + 5 * i, 5, 8 + i % 5
-        # Firm q=(P-v)/2, industry Q=n(P-v)/2, demand Q=a-bP.
-        p = (a + n * v / 2) / (b + n / 2)
-        qfirm = (p - v) / 2
-        text = f"{f} is one of {n} identical competitive firms. Each firm has MC = {v} + 2q. Market demand is Qd = {a} - {b}P."
-        qs = parts(("a", "Write each firm's supply."), ("b", "Find market equilibrium price."), ("c", "Find output per firm."))
-        ss = parts(("a", f"Set P = MC, so q = (P - {v})/2 for positive output."), ("b", f"Industry supply is {n}(P - {v})/2. Set equal to demand to get P = {money(p)}."), ("c", f"Each firm produces q = ({num(p)} - {v})/2 = {num(qfirm)}."))
-        return make_row("Perfect Competition", "Industry supply", "medium", text, qs, ss, ["firm supply", "industry equilibrium"], {"n": n, "a": a, "b": b, "v": v}, family="many firms")
-    if k == 1:
-        fixed, v = 100 + i, 10 + i % 5
-        qmes = math.sqrt(fixed)
-        p_lr = v + 2 * math.sqrt(fixed)
-        text = f"In a long-run competitive industry, firms like {f} have cost C(q) = {fixed} + {v}q + q^2."
-        qs = parts(("a", "Find the long-run zero-profit price."), ("b", "Find output per firm at that price."), ("c", "What happens if market price is above this level?"))
-        ss = parts(("a", f"Long-run price equals minimum ATC. Min ATC = {v} + 2sqrt({fixed}) = {money(p_lr)}."), ("b", f"Minimum ATC occurs at q = sqrt({fixed}) = {num(qmes)}."), ("c", "Positive profits attract entry, shifting industry supply outward and pushing price down."))
-        return make_row("Perfect Competition", "Long-run entry", "medium", text, qs, ss, ["entry", "zero profit"], {"fixed": fixed, "v": v}, family="long-run equilibrium")
-    if k == 2:
-        fixed, v, p = 80 + i, 12 + i % 4, 9 + i % 3
-        text = f"{f} has cost C(q) = {fixed} + {v}q + q^2. The market price has fallen to {money(p)}."
-        qs = parts(("a", "Find the shutdown price."), ("b", "Should the firm produce in the short run?"), ("c", "What role does fixed cost play?"))
-        ss = parts(("a", f"AVC = {v} + q, whose minimum is {money(v)} as q approaches zero."), ("b", f"Since price {money(p)} is below the shutdown price {money(v)}, the firm should shut down."), ("c", "Fixed cost is sunk in the short run and does not determine the shutdown price."))
-        return make_row("Perfect Competition", "Shutdown decision", "easy", text, qs, ss, ["shutdown", "AVC"], {"fixed": fixed, "v": v, "p": p}, family="shutdown")
-    if k == 3:
-        p, mc = 35 + i, 20 + i
-        text = f"{f} is a price-taking firm currently producing a unit whose marginal cost is {money(mc)}. The market price is {money(p)}."
-        qs = parts(("a", "Should the firm produce this marginal unit?"), ("b", "What is the marginal profit from the unit?"), ("c", "What condition stops expansion?"))
-        ss = parts(("a", "Yes, because price exceeds marginal cost."), ("b", f"Marginal profit is P - MC = {money(p - mc)}."), ("c", "Expansion stops where price equals marginal cost."))
-        return make_row("Perfect Competition", "Marginal output rule", "easy", text, qs, ss, ["P=MC"], {"p": p, "mc": mc}, family="marginal unit")
-    fixed, v, p = 90 + i, 8 + i % 5, 30 + i % 6
-    q = (p - v) / 2
-    profit = p * q - fixed - v * q - q**2
-    text = f"{f} takes price as given at {money(p)} and has cost C(q) = {fixed} + {v}q + q^2."
-    qs = parts(("a", "Find the profit-maximizing quantity."), ("b", "Calculate profit."), ("c", "Predict entry or exit pressure in the long run."))
-    ss = parts(("a", f"P = MC gives {p} = {v} + 2q, so q = {num(q)}."), ("b", f"Profit is {money(profit)}."), ("c", "Positive profit attracts entry; negative profit induces exit."))
-    return make_row("Perfect Competition", "Profit and entry", "medium", text, qs, ss, ["profit", "entry"], {"fixed": fixed, "v": v, "p": p}, family="entry pressure")
+    difficulty = difficulty_for_index(i)
+    f, good = firm(i, 7), product(i, 7)
+    fixed, v = 100 + 4 * (i % 6), 20 + i % 5
+    if difficulty == "easy":
+        p = v + 18 + i % 6
+        q = (p - v) / 2
+        profit = p * q - fixed - v * q - q**2
+        text = (
+            f"{f} is one of many small sellers of {good}. Its cost is C(q) = {fixed} + {v}q + q^2, and the market price this week is "
+            f"{money(p)}. The owner understands that she is a price taker but is unsure how that translates into an output decision."
+        )
+        qs = parts(
+            ("a", "Explain why marginal revenue equals price for this firm."),
+            ("b", "Find the profit-maximizing quantity."),
+            ("c", "Compute profit at that quantity."),
+            ("d", "Would positive profit by this firm be expected to persist in the long run? Explain."),
+        )
+        ss = parts(
+            ("a", "A price-taking firm can sell another unit at the market price, so MR = P."),
+            ("b", f"Set P = MC: {p} = {v} + 2q, so q = {num(q)}."),
+            ("c", f"Profit is {money(profit)}."),
+            ("d", "If entry is free and firms are similar, positive economic profit attracts entry and pushes price down."),
+        )
+        return make_row("Perfect Competition", "Price-taking output", difficulty, "A Price-Taking Output Decision", text, qs, ss, ["price taking", "P=MC", "entry"], {"fixed": fixed, "v": v, "price": p}, {"cost": f"C(q)={fixed}+{v}q+q^2"}, family="price taking")
+
+    if difficulty == "medium":
+        p = v + 10 + i % 7
+        q = (p - v) / 2
+        profit = p * q - fixed - v * q - q**2
+        min_atc = v + 2 * math.sqrt(fixed)
+        text = (
+            f"A competitive market for {good} has become crowded. A representative firm has C(q) = {fixed} + {v}q + q^2 and currently "
+            f"faces price {money(p)}. The fixed cost is sunk in the short run. Students often confuse producing at a loss with exiting, "
+            f"so answer separately for the short run and the long run."
+        )
+        qs = parts(
+            ("a", "Find the firm's short-run output."),
+            ("b", "Compute profit or loss."),
+            ("c", "Should the firm produce in the short run?"),
+            ("d", "Find the long-run break-even price."),
+            ("e", "Predict whether firms enter, exit, or neither in the long run."),
+        )
+        ss = parts(
+            ("a", f"q = ({p} - {v})/2 = {num(q)}."),
+            ("b", f"Profit is {money(profit)}."),
+            ("c", f"Yes, because P = {money(p)} is above minimum AVC = {money(v)}, so production helps cover fixed cost."),
+            ("d", f"Minimum ATC is {money(min_atc)}."),
+            ("e", f"Since price is {'below' if p < min_atc else 'above'} break-even, firms {'exit' if p < min_atc else 'enter'} until price moves toward min ATC."),
+        )
+        return make_row("Perfect Competition", "Shutdown and exit", difficulty, "Short-Run Losses and Long-Run Exit", text, qs, ss, ["shutdown", "AVC", "entry and exit"], {"fixed": fixed, "v": v, "price": p}, {"cost": f"C(q)={fixed}+{v}q+q^2"}, family="shutdown exit")
+
+    n, a, b = 18 + i % 5, 520 + 4 * i, 3
+    # Individual supply is q=(P-v)/2. Industry supply is n(P-v)/2.
+    p = (a + (n * v / 2)) / (b + n / 2)
+    q_market = a - b * p
+    q_firm = (p - v) / 2
+    min_atc = v + 2 * math.sqrt(fixed)
+    text = (
+        f"There are {n} identical competitive firms producing {good}. Each has C(q) = {fixed} + {v}q + q^2, and market demand is "
+        f"Qd = {a} - {b}P. Assume firms with positive output follow P = MC in the short run. The industry association wants to know "
+        f"how a short-run equilibrium differs from a long-run equilibrium with entry and exit."
+    )
+    qs = parts(
+        ("a", "Derive one firm's short-run supply curve for positive output."),
+        ("b", "Derive industry supply with the current number of firms."),
+        ("c", "Find the short-run market price and quantity."),
+        ("d", "Find output per firm and profit per firm."),
+        ("e", "Compare the short-run price with minimum ATC."),
+        ("f", "Predict the direction of entry or exit and the long-run price pressure."),
+    )
+    profit = p * q_firm - fixed - v * q_firm - q_firm**2
+    ss = parts(
+        ("a", f"P = {v} + 2q, so q = (P - {v})/2 for P > {money(v)}."),
+        ("b", f"Industry supply is Qs = {n}(P - {v})/2."),
+        ("c", f"Solving Qd = Qs gives P = {money(p)} and Q = {num(q_market)}."),
+        ("d", f"Each firm produces {num(q_firm)} and earns profit {money(profit)}."),
+        ("e", f"Minimum ATC is {money(min_atc)}, so price is {'above' if p > min_atc else 'below'} break-even."),
+        ("f", f"Firms will {'enter' if p > min_atc else 'exit'}, putting {'downward' if p > min_atc else 'upward'} pressure on price."),
+    )
+    return make_row("Perfect Competition", "Industry supply and entry", difficulty, "Competitive Industry Adjustment", text, qs, ss, ["industry supply", "entry", "zero profit"], {"n": n, "a": a, "b": b, "fixed": fixed, "v": v}, {"cost": f"C(q)={fixed}+{v}q+q^2"}, family="industry entry")
 
 
 def monopoly(i: int) -> dict[str, Any]:
-    f = firm(i, 13)
-    k = i % 5
-    a, b, c = 120 + i, 2, 16 + i % 7
-    if k == 0:
-        q = (a - c) / (2 * b)
-        p = a - b * q
-        text = f"{f} is the only seller in its niche. Inverse demand is P = {a} - {b}Q and marginal cost is {money(c)}."
-        qs = parts(("a", "Find monopoly quantity and price."), ("b", "Compute operating profit."), ("c", "Compare with efficient quantity."))
-        ss = parts(("a", f"MR = {a} - {2*b}Q. Setting MR = MC gives Q = {num(q)} and P = {money(p)}."), ("b", f"Profit is (P - MC)Q = {money((p - c) * q)}."), ("c", "Efficient quantity sets P = MC, so monopoly output is lower."))
-        return make_row("Monopoly", "Monopoly pricing", "medium", text, qs, ss, ["MR=MC", "markup"], {"a": a, "b": b, "mc": c}, family="basic monopoly")
-    if k == 1:
-        cap = 42 + i % 6
-        qcap = (a - cap) / b
-        qmon = (a - c) / (2 * b)
-        text = f"A regulator caps {possessive(f)} price at {money(cap)}. Demand is P = {a} - {b}Q and marginal cost is {money(c)}."
-        qs = parts(("a", "Find the unconstrained monopoly quantity."), ("b", "If the cap binds, find quantity demanded at the cap."), ("c", "Does the cap move output toward efficiency?"))
-        ss = parts(("a", f"Unconstrained Q is {num(qmon)}."), ("b", f"At P = {money(cap)}, demand is Q = ({a} - {cap})/{b} = {num(qcap)}."), ("c", "A binding cap below monopoly price raises output toward the efficient quantity, as long as price remains above marginal cost."))
-        return make_row("Monopoly", "Price regulation", "hard", text, qs, ss, ["price cap", "regulation"], {"a": a, "b": b, "mc": c, "cap": cap}, family="price cap")
-    if k == 2:
-        tax = 5 + i % 4
-        q = (a - c - tax) / (2 * b)
-        p = a - b * q
-        text = f"{f} faces a per-unit tax of {money(tax)}. Inverse demand is P = {a} - {b}Q and pre-tax marginal cost is {money(c)}."
-        qs = parts(("a", "Find output after the tax."), ("b", "Find the consumer price."), ("c", "Does the monopolist pass through the full tax?"))
-        ss = parts(("a", f"The tax raises effective MC to {c + tax}. MR = {a} - {2*b}Q = {c + tax}, so Q = {num(q)}."), ("b", f"Price is P = {a} - {b}({num(q)}) = {money(p)}."), ("c", "Not necessarily. Pass-through depends on demand curvature; with linear demand here, price rises by part of the tax."))
-        return make_row("Monopoly", "Monopoly tax", "medium", text, qs, ss, ["monopoly", "tax"], {"a": a, "b": b, "mc": c, "tax": tax}, family="monopoly tax")
-    if k == 3:
-        q = (a - c) / (2 * b)
-        p = a - b * q
-        e = -p / (b * q)
-        text = f"{f} has inverse demand P = {a} - {b}Q and marginal cost {money(c)}. The firm chooses the monopoly price {money(p)}."
-        qs = parts(("a", "Find the quantity associated with that price."), ("b", "Compute elasticity at that point."), ("c", "Relate the markup to elasticity."))
-        ss = parts(("a", f"Q = ({a} - {num(p)})/{b} = {num(q)}."), ("b", f"For inverse demand, point elasticity is -P/(bQ) = -{num(p)}/({b} x {num(q)}) = {num(e)}."), ("c", "The monopoly markup is higher when absolute elasticity is lower, as summarized by the inverse elasticity rule."))
-        return make_row("Monopoly", "Markup and elasticity", "hard", text, qs, ss, ["elasticity", "markup"], {"a": a, "b": b, "mc": c}, family="markup")
-    q_eff = (a - c) / b
-    q_mon = (a - c) / (2 * b)
-    dwl = 0.5 * (q_eff - q_mon) * (a - b * q_mon - c)
-    text = f"{f} has market power. Demand is P = {a} - {b}Q and marginal cost is {money(c)}."
-    qs = parts(("a", "Find the efficient quantity."), ("b", "Find monopoly quantity."), ("c", "Compute deadweight loss."))
-    ss = parts(("a", f"Efficiency sets P = MC: {a} - {b}Q = {c}, so Q = {num(q_eff)}."), ("b", f"MR = MC gives Q = {num(q_mon)}."), ("c", f"DWL is the triangle between demand and MC from {num(q_mon)} to {num(q_eff)}: {money(dwl)}."))
-    return make_row("Monopoly", "Deadweight loss", "hard", text, qs, ss, ["deadweight loss"], {"a": a, "b": b, "mc": c}, family="DWL")
+    difficulty = difficulty_for_index(i)
+    f, good = firm(i, 8), product(i, 8)
+    a, b, mc, fixed = 120 + i, 2, 18 + i % 7, 80 + 5 * (i % 5)
+    qm = (a - mc) / (2 * b)
+    pm = a - b * qm
+    profit = (pm - mc) * qm - fixed
+    qc = (a - mc) / b
+    if difficulty == "easy":
+        elasticity = -pm / (b * qm)
+        text = (
+            f"{f} is the only provider of a specialized {good} service in its region. Inverse demand is P = {a} - {b}Q, marginal cost "
+            f"is constant at {money(mc)}, and fixed cost is {money(fixed)}. The firm wants to understand why a monopolist does not simply "
+            f"serve every customer with willingness to pay above marginal cost."
+        )
+        qs = parts(
+            ("a", "Write marginal revenue."),
+            ("b", "Find the monopoly quantity and price."),
+            ("c", "Compute profit."),
+            ("d", "Explain why the monopoly price is above marginal cost."),
+        )
+        ss = parts(
+            ("a", f"Revenue is {a}Q - {b}Q^2, so MR = {a} - {2 * b}Q."),
+            ("b", f"Set MR = MC: Q = {num(qm)} and P = {money(pm)}."),
+            ("c", f"Profit is ({money(pm)} - {money(mc)}) x {num(qm)} - {money(fixed)} = {money(profit)}."),
+            ("d", "Selling more requires lowering price on marginal and inframarginal units, so the monopolist restricts quantity to keep price above MC."),
+        )
+        return make_row("Monopoly", "Monopoly pricing", difficulty, "Monopoly Output and Markup", text, qs, ss, ["MR=MC", "markup"], {"a": a, "b": b, "mc": mc, "fixed": fixed, "elasticity": elasticity}, family="monopoly pricing")
+
+    if difficulty == "medium":
+        dwl = 0.5 * (pm - mc) * (qc - qm)
+        text = (
+            f"{f} has local monopoly power over {good}. Demand is P = {a} - {b}Q and marginal cost is {money(mc)}. A regulator asks "
+            f"students to compare the monopoly outcome with a competitive benchmark where price equals marginal cost."
+        )
+        qs = parts(
+            ("a", "Find monopoly price and quantity."),
+            ("b", "Find the competitive benchmark quantity and price."),
+            ("c", "Compute monopoly profit before fixed cost and total profit after fixed cost."),
+            ("d", "Compute deadweight loss from monopoly pricing."),
+            ("e", "Explain who gets hurt by monopoly pricing and why total surplus falls."),
+        )
+        ss = parts(
+            ("a", f"Monopoly Q = {num(qm)} and P = {money(pm)}."),
+            ("b", f"Competitive price equals MC = {money(mc)} and Q = {num(qc)}."),
+            ("c", f"Variable profit is {money((pm - mc) * qm)}; after fixed cost, profit is {money(profit)}."),
+            ("d", f"DWL is 0.5 x ({money(pm)} - {money(mc)}) x ({num(qc)} - {num(qm)}) = {money(dwl)}."),
+            ("e", "Consumers with values between MC and the monopoly price are excluded; those lost trades would have created surplus."),
+        )
+        return make_row("Monopoly", "Monopoly welfare", difficulty, "Market Power and Deadweight Loss", text, qs, ss, ["deadweight loss", "competitive benchmark"], {"a": a, "b": b, "mc": mc, "fixed": fixed}, family="monopoly welfare")
+
+    tax = 6 + i % 5
+    q_tax = (a - mc - tax) / (2 * b)
+    p_tax = a - b * q_tax
+    profit_tax = (p_tax - mc - tax) * q_tax - fixed
+    cap = mc + 10 + i % 5
+    q_cap = (a - cap) / b
+    text = (
+        f"A public debate over {possessive(f)} {good} service considers two policies. Demand is P = {a} - {b}Q, marginal cost is "
+        f"{money(mc)}, and fixed cost is {money(fixed)}. Policy 1 is a per-unit tax of {money(tax)}. Policy 2 is a price cap of "
+        f"{money(cap)}. Assume the firm serves all demand at the cap if doing so covers marginal cost."
+    )
+    qs = parts(
+        ("a", "Find the unregulated monopoly price and quantity."),
+        ("b", "Find monopoly price, quantity, and profit under the per-unit tax."),
+        ("c", "Find quantity demanded at the price cap."),
+        ("d", "Compare consumer quantity under the cap with unregulated monopoly quantity."),
+        ("e", "Which policy is more likely to expand output?"),
+        ("f", "Explain why price regulation can improve allocation but still create practical concerns."),
+    )
+    ss = parts(
+        ("a", f"Unregulated Q = {num(qm)} and P = {money(pm)}."),
+        ("b", f"The tax raises effective MC to {money(mc + tax)}. Q = {num(q_tax)}, P = {money(p_tax)}, and after-tax profit is {money(profit_tax)}."),
+        ("c", f"At the cap, Qd = ({a} - {cap})/{b} = {num(q_cap)}."),
+        ("d", f"The cap quantity is {'higher' if q_cap > qm else 'lower'} than monopoly quantity ({num(q_cap)} versus {num(qm)})."),
+        ("e", "The price cap is more likely to expand output because it lowers price toward marginal cost, while the tax raises effective marginal cost."),
+        ("f", "A well-chosen cap can reduce deadweight loss, but a cap below cost could reduce service quality, create shortages, or discourage investment."),
+    )
+    return make_row("Monopoly", "Regulation and tax", difficulty, "Regulating a Local Monopoly", text, qs, ss, ["price cap", "monopoly tax", "regulation"], {"a": a, "b": b, "mc": mc, "fixed": fixed, "tax": tax, "cap": cap}, family="regulation")
 
 
 def price_discrimination(i: int) -> dict[str, Any]:
-    f = firm(i, 15)
-    k = i % 5
-    if k == 0:
-        vh, vl, c = 90 + i % 8, 55 + i % 7, 20 + i % 5
-        text = f"{f} sells a workshop to one high-value customer and one low-value customer. Values are {money(vh)} and {money(vl)}. Marginal cost is {money(c)}."
-        qs = parts(("a", "Find profit under perfect price discrimination."), ("b", "Find the best single price."), ("c", "Why do profits differ?"))
-        profit_pd = vh + vl - 2 * c
-        profit_low = 2 * (vl - c)
-        profit_high = vh - c
-        ss = parts(("a", f"Charge each value. Profit is ({vh} - {c}) + ({vl} - {c}) = {money(profit_pd)}."), ("b", f"At {money(vl)}, profit is {money(profit_low)}. At {money(vh)}, profit is {money(profit_high)}. Choose {money(vl if profit_low >= profit_high else vh)}."), ("c", "Discrimination extracts more surplus and may serve both customers at tailored prices."))
-        return make_row("Price Discrimination", "Personalized pricing", "easy", text, qs, ss, ["price discrimination"], {"vh": vh, "vl": vl, "cost": c}, family="two types")
-    if k == 1:
-        a1, b1, a2, b2, c = 100 + i, 2, 80 + i, 1, 20
-        q1, q2 = (a1 - c) / (2 * b1), (a2 - c) / (2 * b2)
-        p1, p2 = a1 - b1 * q1, a2 - b2 * q2
-        text = f"{f} can separate business and student markets. Inverse demands are P1 = {a1} - {b1}Q1 and P2 = {a2} - {b2}Q2. Marginal cost is {money(c)}."
-        qs = parts(("a", "Find the price and quantity in market 1."), ("b", "Find the price and quantity in market 2."), ("c", "Which market gets the higher price?"))
-        ss = parts(("a", f"MR1 = {a1} - {2*b1}Q1. Set MR1 = {c}: Q1 = {num(q1)}, P1 = {money(p1)}."), ("b", f"MR2 = {a2} - {2*b2}Q2. Set MR2 = {c}: Q2 = {num(q2)}, P2 = {money(p2)}."), ("c", f"Market {'1' if p1 > p2 else '2'} gets the higher price because its optimal markup is higher."))
-        return make_row("Price Discrimination", "Third-degree pricing", "hard", text, qs, ss, ["third-degree price discrimination"], {"a1": a1, "b1": b1, "a2": a2, "b2": b2, "mc": c}, family="separate markets")
-    if k == 2:
-        a, b, c = 80 + i, 2, 10 + i % 4
-        q = (a - c) / b
-        cs = 0.5 * (a - c) * q
-        text = f"{f} has identical customers with demand P = {a} - {b}q for each customer. Marginal cost is {money(c)}. It can charge a per-unit price plus a membership fee."
-        qs = parts(("a", "What usage price maximizes total surplus?"), ("b", "How much does each customer buy at that usage price?"), ("c", "What membership fee extracts all consumer surplus?"))
-        ss = parts(("a", f"Set usage price equal to MC, so p = {money(c)}."), ("b", f"Demand gives q = ({a} - {c})/{b} = {num(q)}."), ("c", f"The fee equals consumer surplus at p = MC: 0.5 x ({a} - {c}) x {num(q)} = {money(cs)}."))
-        return make_row("Price Discrimination", "Two-part tariff", "hard", text, qs, ss, ["two-part tariff", "consumer surplus"], {"a": a, "b": b, "mc": c}, family="membership pricing")
-    if k == 3:
-        base_h, prem_h, base_l, prem_l, c_base, c_prem = 50 + i, 90 + i, 45 + i, 60 + i, 10, 20
-        text = f"{f} sells Basic and Premium plans. High types value Basic at {money(base_h)} and Premium at {money(prem_h)}. Low types value Basic at {money(base_l)} and Premium at {money(prem_l)}. Costs are {money(c_base)} and {money(c_prem)}."
-        qs = parts(("a", "If types are observable, what is the maximum price for each plan/type?"), ("b", "Why can self-selection force the firm to leave information rent?"), ("c", "Which type usually receives the rent in this setting?"))
-        ss = parts(("a", f"Observable types can be charged up to their values for each plan: high type Basic {money(base_h)}, high type Premium {money(prem_h)}, low type Basic {money(base_l)}, and low type Premium {money(prem_l)}."), ("b", "If types are not observable, the high type must prefer Premium over imitating the low type; that incentive constraint can require leaving surplus."), ("c", "The high type usually receives information rent so that it self-selects into the premium option."))
-        return make_row("Price Discrimination", "Self-selection", "medium", text, qs, ss, ["self-selection", "information rent"], {"base_h": base_h, "prem_h": prem_h, "base_l": base_l, "prem_l": prem_l, "cost_base": c_base, "cost_premium": c_prem}, family="versioning")
-    p_reg, q_reg, p_peak, q_peak, mc = 20 + i % 5, 300 + i, 35 + i % 5, 180 + i, 8
-    text = f"{f} sells the same service in regular and peak periods. Regular price and quantity are {money(p_reg)} and {q_reg}; peak price and quantity are {money(p_peak)} and {q_peak}. Marginal cost is {money(mc)} in both periods."
-    qs = parts(("a", "Compute contribution in each period."), ("b", "Why might peak pricing be efficient?"), ("c", "What condition would make prices equal across periods?"))
-    ss = parts(("a", f"Regular contribution is ({p_reg} - {mc}) x {q_reg} = {money((p_reg-mc)*q_reg)}. Peak contribution is ({p_peak} - {mc}) x {q_peak} = {money((p_peak-mc)*q_peak)}."), ("b", "Peak pricing can reflect higher willingness to pay or tighter capacity in peak periods."), ("c", "Prices would tend to equalize if demand conditions and capacity scarcity were the same."))
-    return make_row("Price Discrimination", "Peak-load pricing", "easy", text, qs, ss, ["peak-load pricing"], {"p_reg": p_reg, "q_reg": q_reg, "p_peak": p_peak, "q_peak": q_peak, "mc": mc}, family="peak pricing")
+    difficulty = difficulty_for_index(i)
+    f = firm(i, 9)
+    if difficulty == "easy":
+        high, low, cost = 90 + i % 8, 55 + i % 6, 20 + i % 4
+        n_high, n_low = 80 + i % 5, 120 + i % 7
+        profit_low_price = (low - cost) * (n_high + n_low)
+        profit_high_price = (high - cost) * n_high
+        text = (
+            f"{f} sells a single-use pass to two customer groups. {n_low} casual customers are willing to pay {money(low)}, and "
+            f"{n_high} business customers are willing to pay {money(high)}. Marginal cost is {money(cost)}. The firm cannot initially "
+            f"identify customers, so it must set one price."
+        )
+        qs = parts(
+            ("a", "Compute profit from setting the low price and serving both groups."),
+            ("b", "Compute profit from setting the high price and serving only business customers."),
+            ("c", "Which uniform price should the firm choose?"),
+            ("d", "Explain why the firm would like to price discriminate if it could prevent resale."),
+        )
+        ss = parts(
+            ("a", f"Profit is ({money(low)} - {money(cost)}) x {n_low + n_high} = {money(profit_low_price)}."),
+            ("b", f"Profit is ({money(high)} - {money(cost)}) x {n_high} = {money(profit_high_price)}."),
+            ("c", f"The firm chooses the {'low' if profit_low_price > profit_high_price else 'high'} price because it gives higher profit."),
+            ("d", "Different groups have different willingness to pay. Charging each group closer to its value would capture more surplus if arbitrage is prevented."),
+        )
+        return make_row("Price Discrimination", "Uniform versus group pricing", difficulty, "One Price or Two?", text, qs, ss, ["reservation price", "uniform pricing"], {"high": high, "low": low, "cost": cost, "n_high": n_high, "n_low": n_low}, family="uniform pricing")
+
+    if difficulty == "medium":
+        low_basic, high_basic = 44 + i % 5, 56 + i % 5
+        low_premium, high_premium = 58 + i % 6, 88 + i % 7
+        cost_basic, cost_premium = 16 + i % 4, 24 + i % 5
+        n_low = n_high = 100
+        p_basic = low_basic
+        p_premium = high_premium - (high_basic - p_basic)
+        menu_profit = n_low * (p_basic - cost_basic) + n_high * (p_premium - cost_premium)
+        single_price = high_premium
+        single_profit = n_high * (single_price - cost_premium)
+        text = (
+            f"{f} can sell a basic and premium version of a service. There are 100 flexible users and 100 high-value users. Flexible users "
+            f"value basic at {money(low_basic)} and premium at {money(low_premium)}. High-value users value basic at {money(high_basic)} and premium at "
+            f"{money(high_premium)}. Costs are {money(cost_basic)} for basic and {money(cost_premium)} for premium. The firm cannot observe type."
+        )
+        qs = parts(
+            ("a", "Set the highest basic price that keeps flexible users buying."),
+            ("b", "Set the highest premium price that keeps high-value users choosing premium over basic."),
+            ("c", "Compute profit from this self-selection menu."),
+            ("d", "Compare with selling only premium at the high-value reservation price."),
+            ("e", "Explain why the premium product may need to leave information rents to high-value users."),
+        )
+        ss = parts(
+            ("a", f"The basic price can be {money(p_basic)}."),
+            ("b", f"High-value users need {high_premium} - Ppremium >= {high_basic} - {p_basic}, so Ppremium = {money(p_premium)}."),
+            ("c", f"Menu profit is 100({money(p_basic)} - {money(cost_basic)}) + 100({money(p_premium)} - {money(cost_premium)}) = {money(menu_profit)}."),
+            ("d", f"Premium-only profit is 100({money(single_price)} - {money(cost_premium)}) = {money(single_profit)}."),
+            ("e", "If the premium price extracts all high-type surplus, high types may prefer the basic version. The firm leaves rents to preserve self-selection."),
+        )
+        return make_row("Price Discrimination", "Self-selection menu", difficulty, "Designing a Pricing Menu", text, qs, ss, ["self-selection", "information rents", "versioning"], {"low_basic": low_basic, "high_basic": high_basic, "low_premium": low_premium, "high_premium": high_premium, "cost_basic": cost_basic, "cost_premium": cost_premium}, family="versioning")
+
+    a1, b1, a2, b2, mc = 110 + i, 2, 80 + i, 1, 20 + i % 5
+    q1 = (a1 - mc) / (2 * b1)
+    p1 = a1 - b1 * q1
+    q2 = (a2 - mc) / (2 * b2)
+    p2 = a2 - b2 * q2
+    profit_sep = (p1 - mc) * q1 + (p2 - mc) * q2
+    text = (
+        f"{f} can prevent resale between two markets. In market A, inverse demand is P_A = {a1} - {b1}Q_A. In market B, inverse demand is "
+        f"P_B = {a2} - {b2}Q_B. Marginal cost is {money(mc)} in both markets. The firm is considering third-degree price discrimination."
+    )
+    qs = parts(
+        ("a", "Write marginal revenue in each market."),
+        ("b", "Find the profit-maximizing quantity and price in market A."),
+        ("c", "Find the profit-maximizing quantity and price in market B."),
+        ("d", "Compute total variable profit under separate pricing."),
+        ("e", "Which market receives the higher price, and what does that imply about elasticity?"),
+        ("f", "Name one condition needed for this pricing strategy to work."),
+    )
+    ss = parts(
+        ("a", f"MR_A = {a1} - {2 * b1}Q_A and MR_B = {a2} - {2 * b2}Q_B."),
+        ("b", f"Market A: Q = {num(q1)} and P = {money(p1)}."),
+        ("c", f"Market B: Q = {num(q2)} and P = {money(p2)}."),
+        ("d", f"Total variable profit is {money(profit_sep)}."),
+        ("e", f"The higher price is in market {'A' if p1 > p2 else 'B'}, indicating relatively less elastic demand at the chosen quantity."),
+        ("f", "The firm must be able to segment customers and prevent profitable resale/arbitrage."),
+    )
+    return make_row("Price Discrimination", "Third-degree price discrimination", difficulty, "Separate Prices Across Markets", text, qs, ss, ["third-degree price discrimination", "MR=MC"], {"a1": a1, "b1": b1, "a2": a2, "b2": b2, "mc": mc}, family="third degree")
 
 
 def risk_insurance(i: int) -> dict[str, Any]:
-    f = firm(i, 1)
-    k = i % 5
-    if k == 0:
-        value, fail = 1000 + 20 * i, 0.05 + (i % 4) * 0.01
-        ev = value * (1 - fail)
-        text = f"{f} sells a device worth {money(value)} if it works and {money(0)} if it fails. The failure probability is {pct(fail)}."
-        qs = parts(("a", "Find willingness to pay for a risk-neutral buyer."), ("b", "If production cost is $100 below the risk-neutral willingness to pay from part (a), find producer surplus."), ("c", "How would risk aversion affect willingness to pay?"))
-        ss = parts(("a", f"WTP equals expected value: (1 - {num(fail)}) x {money(value)} = {money(ev)}."), ("b", f"Producer surplus is {money(ev)} - {money(ev - 100)} = {money(100)}."), ("c", "Risk aversion lowers WTP below expected value for uninsured downside risk."))
-        return make_row("Risk and Insurance", "Expected value", "easy", text, qs, ss, ["expected value", "risk aversion"], {"value": value, "failure_probability": fail}, family="risky product")
-    if k == 1:
-        wealth, loss, prob = 100, 30 + i, 0.25
-        eu = prob * math.sqrt(wealth - loss) + (1 - prob) * math.sqrt(wealth)
-        ce = eu**2
-        rp = wealth - prob * loss - ce
-        text = f"A customer of {f} has wealth {wealth} and utility u(w)=sqrt(w). With probability {pct(prob)}, a loss of {loss} occurs."
-        qs = parts(("a", "Compute expected wealth."), ("b", "Compute the certainty equivalent."), ("c", "Compute the risk premium."))
-        ss = parts(("a", f"Expected wealth is {wealth} - {num(prob)} x {loss} = {num(wealth - prob * loss)}."), ("b", f"Expected utility is {num(eu)}. The certainty equivalent solves sqrt(CE) = EU, so CE = {num(ce)}."), ("c", f"Risk premium is expected wealth minus CE: {num(rp)}."))
-        return make_row("Risk and Insurance", "Certainty equivalent", "hard", text, qs, ss, ["expected utility", "certainty equivalent"], {"wealth": wealth, "loss": loss, "prob": prob}, family="CE")
-    if k == 2:
-        wealth, loss, prob = 100, 28 + i, 0.2
-        eu = prob * math.sqrt(wealth - loss) + (1 - prob) * math.sqrt(wealth)
-        max_premium = wealth - eu**2
-        fair = prob * loss
-        text = f"{f} offers full insurance to a consumer with wealth {wealth}, utility sqrt(w), loss {loss}, and loss probability {pct(prob)}."
-        qs = parts(("a", "Find the actuarially fair premium."), ("b", "Find the maximum premium the consumer would pay."), ("c", "Why can the maximum exceed the fair premium?"))
-        ss = parts(("a", f"Fair premium is expected loss: {num(prob)} x {loss} = {money(fair)}."), ("b", f"Without insurance EU = {num(eu)}. Full insurance gives certain wealth 100 - premium. Set sqrt(100 - premium) = {num(eu)}, so premium = {money(max_premium)}."), ("c", "A risk-averse consumer is willing to pay a risk premium to avoid uncertainty."))
-        return make_row("Risk and Insurance", "Insurance premium", "hard", text, qs, ss, ["insurance", "risk premium"], {"wealth": wealth, "loss": loss, "prob": prob}, family="insurance WTP")
-    if k == 3:
-        p_bad, repair = 0.1 + (i % 4) * 0.02, 300 + 10 * i
-        wtp = p_bad * repair
-        text = f"{f} is considering selling a warranty. A product repair costs {money(repair)} and occurs with probability {pct(p_bad)}. Buyers are risk-neutral."
-        qs = parts(("a", "What is the expected repair cost?"), ("b", "What is the maximum warranty price for a risk-neutral buyer?"), ("c", "Would risk aversion raise or lower this maximum?"))
-        ss = parts(("a", f"Expected repair cost is {num(p_bad)} x {money(repair)} = {money(wtp)}."), ("b", f"A risk-neutral buyer pays at most the expected cost, {money(wtp)}."), ("c", "Risk aversion raises willingness to pay for the warranty above expected cost."))
-        return make_row("Risk and Insurance", "Warranty", "easy", text, qs, ss, ["warranty", "expected cost"], {"repair": repair, "prob": p_bad}, family="warranty")
-    low, med, high = 1000 + 10 * i, 2400 + 10 * i, 5000 + 10 * i
-    avg_all = (low + med + high) / 3
-    avg_high = high
-    text = f"{f} studies an insurance pool with equal numbers of low-, medium-, and high-risk customers. Expected costs are {money(low)}, {money(med)}, and {money(high)}."
-    qs = parts(("a", "What premium breaks even if everyone buys?"), ("b", "What happens if only high-risk customers buy?"), ("c", "What is the adverse-selection concern?"))
-    ss = parts(("a", f"Average cost with everyone is ({low} + {med} + {high})/3 = {money(avg_all)}."), ("b", f"If only high-risk customers buy, break-even premium is {money(avg_high)}."), ("c", "As lower-risk customers leave, average cost rises, which can further raise premiums."))
-    return make_row("Risk and Insurance", "Insurance pool", "medium", text, qs, ss, ["insurance", "adverse selection"], {"low": low, "medium": med, "high": high}, family="insurance pool")
+    difficulty = difficulty_for_index(i)
+    if difficulty == "easy":
+        safe, base, bonus, prob = 92 + i % 8, 70 + i % 6, 36 + i % 9, 0.6
+        ev = base + prob * bonus
+        eu_risky = prob * math.sqrt(base + bonus) + (1 - prob) * math.sqrt(base)
+        ce = eu_risky**2
+        text = (
+            f"A graduating student compares two jobs. Job Safe pays {money(safe)} thousand for sure. Job Bonus pays {money(base)} thousand "
+            f"plus a {money(bonus)} thousand bonus with probability {pct(prob)}. Payoffs are measured in thousands of dollars, and the student "
+            f"has utility u(x) = sqrt(x)."
+        )
+        qs = parts(
+            ("a", "Compute the expected monetary value of Job Bonus."),
+            ("b", "Which job would a risk-neutral student choose?"),
+            ("c", "Compute the expected utility of Job Bonus and the utility of Job Safe."),
+            ("d", "Explain why risk aversion can change the ranking even when expected value is higher."),
+        )
+        ss = parts(
+            ("a", f"EV(Bonus) = {base} + {prob} x {bonus} = {money(ev)} thousand."),
+            ("b", f"A risk-neutral student chooses {'Job Bonus' if ev > safe else 'Job Safe'} because it has the higher expected value."),
+            ("c", f"EU(Bonus) = {num(eu_risky)} and U(Safe) = {num(math.sqrt(safe))}."),
+            ("d", "Risk-averse utility is concave, so downside risk lowers expected utility relative to a sure payment with the same expected value."),
+        )
+        return make_row("Risk and Insurance", "Risky job choice", difficulty, "Choosing Between Job Offers", text, qs, ss, ["expected value", "expected utility", "risk aversion"], {"safe": safe, "base": base, "bonus": bonus, "prob": prob}, {"utility": "sqrt(x)"}, family="job risk")
 
+    if difficulty == "medium":
+        wealth, loss, prob = 250, 90 + i % 15, 0.02 + (i % 4) * 0.005
+        premium = prob * loss + 1
+        eu_no = prob * math.log(wealth - loss) + (1 - prob) * math.log(wealth)
+        ce_no = math.exp(eu_no)
+        wtp = wealth - ce_no
+        text = (
+            f"A small business has wealth of {money(wealth)} thousand. A flood would cause a loss of {money(loss)} thousand with probability "
+            f"{pct(prob)}. The owner has utility u(x) = ln(x), with x in thousands. Full insurance is available for a premium of "
+            f"{money(premium)} thousand."
+        )
+        qs = parts(
+            ("a", "Compute the expected monetary value of remaining uninsured."),
+            ("b", "Compute the certainty equivalent of remaining uninsured."),
+            ("c", "Compute the maximum premium the owner would pay for full insurance."),
+            ("d", "Should the owner buy the policy at the offered premium?"),
+            ("e", "Explain why insurance can be attractive even when it is not actuarially favorable."),
+        )
+        ev_no = wealth - prob * loss
+        ss = parts(
+            ("a", f"EV uninsured is {money(ev_no)} thousand."),
+            ("b", f"CE solves ln(CE) = {pct(prob)} ln({wealth - loss}) + {pct(1 - prob)} ln({wealth}), so CE = {money(ce_no)} thousand."),
+            ("c", f"Maximum premium for full insurance is {money(wealth - ce_no)} thousand."),
+            ("d", f"The owner {'buys' if premium <= wtp else 'does not buy'} because the offered premium is {'below' if premium <= wtp else 'above'} willingness to pay."),
+            ("e", "Insurance removes risk. A risk-averse person may accept a lower expected monetary value in exchange for a less variable outcome."),
+        )
+        return make_row("Risk and Insurance", "Insurance willingness to pay", difficulty, "Flood Insurance and Risk Premium", text, qs, ss, ["certainty equivalent", "insurance", "risk premium"], {"wealth": wealth, "loss": loss, "prob": prob, "premium": premium}, {"utility": "ln(x)"}, family="insurance WTP")
 
-# Reuse compact versions for the remaining topics. They still generate multiple problem families.
+    safe, base, bonus, prob = 110 + i % 8, 86 + i % 6, 58 + i % 7, 0.75
+    ev = base + prob * bonus
+    eu = prob * math.sqrt(base + bonus) + (1 - prob) * math.sqrt(base)
+    ce = eu**2
+    smoother_base = ev - 20
+    smoother_bonus = 20 / prob
+    eu_smooth = prob * math.sqrt(smoother_base + smoother_bonus) + (1 - prob) * math.sqrt(smoother_base)
+    text = (
+        f"A firm offers analysts a risky compensation package: base salary {money(base)} thousand and a bonus of {money(bonus)} thousand "
+        f"with probability {pct(prob)}. A competing firm offers a guaranteed {money(safe)} thousand. Analysts have utility u(x)=sqrt(x). "
+        f"The firm is considering a smoother package with the same expected value but a smaller bonus."
+    )
+    qs = parts(
+        ("a", "Compute the expected value of the risky package."),
+        ("b", "Compute its certainty equivalent."),
+        ("c", "Which offer does a risk-averse analyst prefer: the risky package or the guaranteed competing offer?"),
+        ("d", "Construct the smoother package described: base salary plus smaller bonus with the same expected value."),
+        ("e", "Compare expected utility under the original and smoother packages."),
+        ("f", "Explain the compensation design lesson for a firm hiring risk-averse workers."),
+    )
+    ss = parts(
+        ("a", f"EV = {money(ev)} thousand."),
+        ("b", f"CE = EU^2 = {money(ce)} thousand."),
+        ("c", f"The analyst prefers {'the risky package' if ce > safe else 'the guaranteed offer'} because CE is {'above' if ce > safe else 'below'} {money(safe)} thousand."),
+        ("d", f"Using a {money(20)} thousand expected bonus component gives bonus {money(smoother_bonus)} thousand and base {money(smoother_base)} thousand."),
+        ("e", f"EU original is {num(eu)}; EU smoother is {num(eu_smooth)}. The smoother package is {'preferred' if eu_smooth > eu else 'not preferred'} by risk-averse workers."),
+        ("f", "For risk-averse employees, the firm may need to pay a risk premium for volatile compensation; smoother pay can be valuable even at the same expected value."),
+    )
+    return make_row("Risk and Insurance", "Compensation risk", difficulty, "Risky Pay and Smoother Contracts", text, qs, ss, ["expected utility", "certainty equivalent", "risk premium"], {"safe": safe, "base": base, "bonus": bonus, "prob": prob}, {"utility": "sqrt(x)"}, family="compensation risk")
 
 
 def asymmetric_information(i: int) -> dict[str, Any]:
-    f = firm(i, 3)
-    k = i % 5
-    good_v, bad_v = 120 + i % 10, 50 + i % 8
-    good_c, bad_c = 80 + i % 6, 30 + i % 5
-    share_good = 0.5 if k != 1 else 0.4
-    pooled = share_good * good_v + (1 - share_good) * bad_v
-    if k in {0, 1, 2}:
-        text = f"Buyers cannot observe whether {possessive(f)} marketplace item is high or low quality. High quality is worth {money(good_v)} and costs {money(good_c)}; low quality is worth {money(bad_v)} and costs {money(bad_c)}. The high-quality share is {pct(share_good)}."
-        qs = parts(("a", "Compute pooled willingness to pay."), ("b", "Which sellers participate at the pooled price?"), ("c", "Explain the adverse-selection pressure."))
-        high_participates = pooled >= good_c
-        low_participates = pooled >= bad_c
-        if high_participates and low_participates:
-            participation = "both high- and low-quality sellers participate"
-        elif high_participates:
-            participation = "only high-quality sellers participate"
-        elif low_participates:
-            participation = "only low-quality sellers participate"
-        else:
-            participation = "neither type participates"
-        ss = parts(("a", f"Pooled WTP is {num(share_good)} x {good_v} + {num(1-share_good)} x {bad_v} = {money(pooled)}."), ("b", f"High quality participates if {money(pooled)} >= {money(good_c)}, which is {'true' if high_participates else 'false'} here; low quality participates if {money(pooled)} >= {money(bad_c)}, which is {'true' if low_participates else 'false'} here. Therefore, {participation}."), ("c", "If high-quality sellers exit, average quality falls and the pooled WTP falls too."))
-        return make_row("Asymmetric Information", "Adverse selection", "medium", text, qs, ss, ["adverse selection"], {"good_v": good_v, "bad_v": bad_v, "good_c": good_c, "bad_c": bad_c, "share_good": share_good}, family="lemons")
-    cert_cost = 12 + i % 6
-    gain = good_v - pooled
-    text = f"High-quality sellers on {possessive(f)} platform can buy certification costing {money(cert_cost)}. Without certification, buyers pay the pooled value {money(pooled)}; certified high-quality sellers can charge {money(good_v)}."
-    qs = parts(("a", "What is the gross benefit of certification?"), ("b", "Will high-quality sellers certify?"), ("c", "Why might low-quality sellers not certify?"))
-    ss = parts(("a", f"Gross benefit is {money(good_v)} - {money(pooled)} = {money(gain)}."), ("b", f"They certify if {money(gain)} >= {money(cert_cost)}, which is {'true' if gain >= cert_cost else 'false'} here."), ("c", "A credible certificate must be harder or less valuable for low-quality sellers to mimic."))
-    return make_row("Asymmetric Information", "Certification", "medium", text, qs, ss, ["signaling", "certification"], {"good_v": good_v, "pooled": pooled, "cert_cost": cert_cost}, family="certification")
+    difficulty = difficulty_for_index(i)
+    f, good = firm(i, 11), product(i, 1)
+    if difficulty == "easy":
+        share_good = 0.6
+        good_value, bad_value = 120 + i % 10, 60 + i % 8
+        good_cost, bad_cost = 85 + i % 6, 45 + i % 5
+        pooled = share_good * good_value + (1 - share_good) * bad_value
+        text = (
+            f"Buyers in a used-{good} market cannot tell high-quality units from low-quality units before purchase. High-quality units are "
+            f"worth {money(good_value)} to buyers and cost sellers {money(good_cost)} to part with. Low-quality units are worth {money(bad_value)} "
+            f"and cost sellers {money(bad_cost)}. Buyers believe {pct(share_good)} of units are high quality."
+        )
+        qs = parts(
+            ("a", "Compute buyers' willingness to pay for a randomly selected unit."),
+            ("b", "At that pooled price, which sellers are willing to sell?"),
+            ("c", "If high-quality sellers leave, what happens to buyers' willingness to pay?"),
+            ("d", "Explain why this is an adverse selection problem."),
+        )
+        ss = parts(
+            ("a", f"Pooled WTP is {pct(share_good)} x {money(good_value)} + {pct(1 - share_good)} x {money(bad_value)} = {money(pooled)}."),
+            ("b", f"High-quality sellers {'sell' if pooled >= good_cost else 'do not sell'}; low-quality sellers sell because {money(pooled)} exceeds {money(bad_cost)}."),
+            ("c", f"If only low-quality units remain, WTP falls to {money(bad_value)}."),
+            ("d", "The market pool worsens as price attracts low-quality sellers and discourages high-quality sellers, reducing gains from trade."),
+        )
+        return make_row("Asymmetric Information", "Adverse selection", difficulty, "Quality Uncertainty in a Used Market", text, qs, ss, ["adverse selection", "lemons"], {"share_good": share_good, "good_value": good_value, "bad_value": bad_value, "good_cost": good_cost, "bad_cost": bad_cost}, family="lemons")
+
+    if difficulty == "medium":
+        p_no, warranty, p_w = 78 + i % 8, 28 + i % 5, 112 + i % 7
+        good_cost, bad_cost = 70 + i % 5, 52 + i % 4
+        text = (
+            f"{f} sells refurbished {good}. Without a warranty, units sell for {money(p_no)}. A high-quality seller expects no repair cost "
+            f"from a warranty, while a low-quality seller expects warranty claims of {money(warranty)}. A proposed certified listing includes "
+            f"the warranty and sells for {money(p_w)}."
+        )
+        qs = parts(
+            ("a", "Compute the payoff from selling without a warranty for each type."),
+            ("b", "Compute the payoff from selling with the warranty for each type."),
+            ("c", "Which type is willing to offer the warranty?"),
+            ("d", "Explain how the warranty can serve as a signal."),
+            ("e", "Name one real-world limitation of relying on warranties as signals."),
+        )
+        ss = parts(
+            ("a", f"No-warranty payoffs are {money(p_no - good_cost)} for high quality and {money(p_no - bad_cost)} for low quality."),
+            ("b", f"Warranty payoffs are {money(p_w - good_cost)} for high quality and {money(p_w - warranty - bad_cost)} for low quality."),
+            ("c", "The type with the higher relative payoff from warranty listing will offer it; with these numbers, high quality benefits more."),
+            ("d", "The signal works because it is less costly for high-quality sellers to provide than for low-quality sellers."),
+            ("e", "Claims abuse, weak enforcement, exclusions, or seller bankruptcy can make warranties less credible."),
+        )
+        return make_row("Asymmetric Information", "Warranty signaling", difficulty, "Warranty as a Quality Signal", text, qs, ss, ["signaling", "warranty", "quality"], {"p_no": p_no, "warranty": warranty, "p_w": p_w, "good_cost": good_cost, "bad_cost": bad_cost}, family="warranty")
+
+    safe_p, risky_p, loss, wealth = 0.01, 0.05, 100, 250
+    full_premium, partial_premium, deductible = 5, 1, 70 + i % 10
+    text = (
+        f"An insurer cannot observe whether drivers are safe or risky. Safe drivers have accident probability {pct(safe_p)}; risky drivers "
+        f"have probability {pct(risky_p)}. An accident costs {money(loss)} thousand, and all drivers have wealth {money(wealth)} thousand with "
+        f"utility u(x)=ln(x). The insurer considers a full-insurance plan with premium {money(full_premium)} thousand and a partial plan with "
+        f"premium {money(partial_premium)} thousand and deductible {money(deductible)} thousand."
+    )
+    def eu_plan(prob: float, premium: float, deductible_value: float) -> float:
+        return prob * math.log(wealth - premium - deductible_value) + (1 - prob) * math.log(wealth - premium)
+    eu_safe_full = math.log(wealth - full_premium)
+    eu_safe_partial = eu_plan(safe_p, partial_premium, deductible)
+    eu_risky_full = math.log(wealth - full_premium)
+    eu_risky_partial = eu_plan(risky_p, partial_premium, deductible)
+    qs = parts(
+        ("a", "Compute the expected cost of fully insuring each type."),
+        ("b", "For safe drivers, compare expected utility under the full and partial plans."),
+        ("c", "For risky drivers, compare expected utility under the full and partial plans."),
+        ("d", "Which type is more likely to choose the high-deductible plan?"),
+        ("e", "Explain how a menu of plans can reduce adverse selection."),
+        ("f", "Why might the insurer still fail to reach the first-best outcome?"),
+    )
+    ss = parts(
+        ("a", f"Expected costs are {money(safe_p * loss)} thousand for safe drivers and {money(risky_p * loss)} thousand for risky drivers."),
+        ("b", f"Safe EU full = {num(eu_safe_full)}; safe EU partial = {num(eu_safe_partial)}."),
+        ("c", f"Risky EU full = {num(eu_risky_full)}; risky EU partial = {num(eu_risky_partial)}."),
+        ("d", "Safe drivers are more likely to choose the high-deductible plan because they are less likely to pay the deductible."),
+        ("e", "The menu screens customers: low-risk types self-select into lower premiums with more exposure, while high-risk types value full coverage more."),
+        ("f", "Risk remains, some efficient coverage may be distorted to preserve self-selection, and the insurer still cannot directly observe type."),
+    )
+    return make_row("Asymmetric Information", "Insurance screening", difficulty, "Screening with Insurance Plans", text, qs, ss, ["screening", "adverse selection", "insurance"], {"safe_p": safe_p, "risky_p": risky_p, "loss": loss, "wealth": wealth, "full_premium": full_premium, "partial_premium": partial_premium, "deductible": deductible}, {"utility": "ln(x)"}, family="screening")
 
 
 def incentives_contracts(i: int) -> dict[str, Any]:
-    f = firm(i, 5)
-    ph, pl = 0.75, 0.50
-    effort = 5 + i % 6
-    outside = max(18 + i % 8, 2 * effort)
-    bonus = effort / (ph - pl)
-    wage = outside + effort - ph * bonus
-    k = i % 5
-    if k in {0, 1, 2}:
-        intro = ["redesigns sales compensation", "cannot observe effort directly", "wants to reward successful client conversions"][k]
-        text = f"{f} {intro}. A sale occurs with probability {pct(ph)} under high effort and {pct(pl)} under low effort. The outside option is {money(outside)} and effort costs {money(effort)}."
-        qs = parts(("a", "Write the incentive-compatibility constraint."), ("b", "Write the participation constraint."), ("c", "Find the cheapest wage and bonus."))
-        ss = parts(("a", f"IC: w + {ph}b - {effort} >= w + {pl}b, so ({ph-pl})b >= {effort}."), ("b", f"PC: w + {ph}b - {effort} >= {outside}."), ("c", f"Minimum bonus is b = {money(bonus)}. Then w = {money(wage)}."))
-        return make_row("Incentives and Contracts", "Moral hazard contract", "medium", text, qs, ss, ["incentive compatibility", "participation"], {"ph": ph, "pl": pl, "outside": outside, "effort": effort}, family="bonus contract")
-    revenue = 100 + 5 * i
-    expected_gain = (ph - pl) * revenue
-    text = f"{f} earns {money(revenue)} from a successful sale. High effort raises success probability from {pct(pl)} to {pct(ph)} and costs the worker {money(effort)}."
-    qs = parts(("a", "What is the expected revenue gain from high effort?"), ("b", "Is inducing effort efficient?"), ("c", "What contracting friction remains?"))
-    ss = parts(("a", f"Expected revenue gain is ({ph} - {pl}) x {money(revenue)} = {money(expected_gain)}."), ("b", f"Effort is efficient if {money(expected_gain)} exceeds effort cost {money(effort)}, which it does here."), ("c", "The firm still needs an incentive-compatible contract because effort is hidden."))
-    return make_row("Incentives and Contracts", "Effort efficiency", "medium", text, qs, ss, ["moral hazard", "efficiency"], {"revenue": revenue, "ph": ph, "pl": pl, "effort": effort}, family="efficiency")
+    difficulty = difficulty_for_index(i)
+    f = firm(i, 12)
+    s, n, c, m = 0.75, 0.25, 3 + i % 4, 12 + i % 5
+    b = c / (s - n)
+    w = m - s * b + c
+    if difficulty == "easy":
+        text = (
+            f"{f} employs sales associates who can either help customers or hide in the stockroom. Helping creates a sale with probability "
+            f"{pct(s)}; hiding creates a sale with probability {pct(n)}. Effort costs the worker {money(c)} per hour, and the outside wage is "
+            f"{money(m)} per hour. Workers are risk-neutral."
+        )
+        qs = parts(
+            ("a", "Write the worker's expected payoff from helping under wage w and bonus b."),
+            ("b", "Write the worker's expected payoff from hiding."),
+            ("c", "Find the minimum bonus that makes helping incentive compatible."),
+            ("d", "Explain why a flat wage would not solve the hidden-action problem."),
+        )
+        ss = parts(
+            ("a", "Helping payoff is w + S b - c."),
+            ("b", "Hiding payoff is w + n b."),
+            ("c", f"Need (S - n)b >= c, so b = {c}/({s} - {n}) = {money(b)}."),
+            ("d", "With a flat wage, the worker bears the effort cost but does not receive a higher payoff when effort raises the chance of sale."),
+        )
+        return make_row("Incentives and Contracts", "Incentive compatibility", difficulty, "Motivating Sales Effort", text, qs, ss, ["moral hazard", "incentive compatibility"], {"s": s, "n": n, "c": c, "m": m}, family="IC")
+
+    if difficulty == "medium":
+        margin = b + 2 + i % 5
+        text = (
+            f"{f} is designing a bonus contract. If an employee works hard, the success probability is {pct(s)}; if the employee shirks, it is "
+            f"{pct(n)}. Effort costs {money(c)}, the outside option is {money(m)}, and workers are risk-neutral. Each success creates margin "
+            f"{money(margin)} for the firm before labor compensation."
+        )
+        qs = parts(
+            ("a", "Find the minimum bonus that induces high effort."),
+            ("b", "Find the base wage that satisfies participation at equality."),
+            ("c", "Compute the worker's expected pay under high effort."),
+            ("d", "Is the incentive scheme profitable relative to paying the outside wage and accepting low effort?"),
+            ("e", "Explain how the answer changes if effort becomes harder to measure or workers become risk-averse."),
+        )
+        profit_bonus = s * (margin - b) - w
+        profit_flat = n * margin - m
+        ss = parts(
+            ("a", f"b* = c/(S - n) = {c}/({s} - {n}) = {money(b)}."),
+            ("b", f"w* = m - S b* + c = {money(w)}."),
+            ("c", f"Expected worker payoff is w + S b - c = {money(m)}, exactly the outside option."),
+            ("d", f"Firm profit with incentives is {money(profit_bonus)} per worker-period; flat-wage profit is {money(profit_flat)}. Incentives are {'worthwhile' if profit_bonus >= profit_flat else 'not worthwhile'} here."),
+            ("e", "Noisier measurement weakens the link between effort and reward; risk aversion makes bonus pay costly because workers require compensation for income risk."),
+        )
+        return make_row("Incentives and Contracts", "Optimal bonus contract", difficulty, "Base Pay and Bonus Design", text, qs, ss, ["bonus", "participation", "moral hazard"], {"s": s, "n": n, "c": c, "m": m, "margin": margin}, family="bonus contract")
+
+    margin_low, margin_high = b - 1, b + 4 + i % 4
+    text = (
+        f"{f} can use the same risk-neutral bonus contract in two departments. In both departments, effort raises success probability from "
+        f"{pct(n)} to {pct(s)} and costs the worker {money(c)}. The outside wage is {money(m)}. The margin from success is {money(margin_low)} "
+        f"in Department L and {money(margin_high)} in Department H."
+    )
+    qs = parts(
+        ("a", "Find the incentive-compatible bonus."),
+        ("b", "Find the base wage satisfying participation."),
+        ("c", "Derive the simple condition for whether incentivizing effort is worth it."),
+        ("d", "Apply the condition to Department L."),
+        ("e", "Apply the condition to Department H."),
+        ("f", "Explain why the same worker-side contract can be optimal in one department but not another."),
+    )
+    threshold = c / (s - n)
+    ss = parts(
+        ("a", f"b* = {money(b)}."),
+        ("b", f"w* = {money(w)}."),
+        ("c", f"Effort is worth inducing when margin X >= c/(S - n) = {money(threshold)}."),
+        ("d", f"Department L margin is {money(margin_low)}, so incentives are {'worthwhile' if margin_low >= threshold else 'not worthwhile'}."),
+        ("e", f"Department H margin is {money(margin_high)}, so incentives are {'worthwhile' if margin_high >= threshold else 'not worthwhile'}."),
+        ("f", "The worker's incentive problem is the same, but the firm's benefit from extra success differs across departments."),
+    )
+    return make_row("Incentives and Contracts", "When incentives are worth it", difficulty, "Should the Firm Use Bonus Pay?", text, qs, ss, ["moral hazard", "profitability", "contract design"], {"s": s, "n": n, "c": c, "m": m, "margin_low": margin_low, "margin_high": margin_high}, family="contract profitability")
 
 
 def game_theory(i: int) -> dict[str, Any]:
-    f1, f2 = firm(i), firm(i, 6)
-    k = i % 5
-    if k == 0:
-        hh, steal, victim, ll = 50 + i, 61 + i, 34 + i, 42 + i
-        text = f"{f1} and {f2} simultaneously choose High Price or Low Price. If both choose High, payoffs are ({hh},{hh}). If one chooses Low while the other chooses High, the low-price firm gets {steal} and the high-price firm gets {victim}. If both choose Low, payoffs are ({ll},{ll})."
-        qs = parts(("a", f"Does {f1} have a dominant strategy?"), ("b", f"Does {f2} have a dominant strategy?"), ("c", "Find the Nash equilibrium."))
-        ss = parts(("a", f"Low Price yields {steal} instead of {hh} if the rival chooses High, and {ll} instead of {victim} if the rival chooses Low. It is dominant."), ("b", "By symmetry, Low Price is dominant for the rival too."), ("c", "The Nash equilibrium is (Low, Low)."))
-        return make_row("Game Theory", "Dominant strategies", "easy", text, qs, ss, ["dominant strategy", "Nash"], {"firm1": f1, "firm2": f2}, family="pricing game")
-    if k == 1:
-        adopt, neither, solo, wait = 70 + i, 44 + i, 28 + i, 54 + i
-        text = f"{f1} and {f2} choose whether to adopt a shared standard. If both adopt, payoffs are ({adopt},{adopt}). If neither adopts, payoffs are ({neither},{neither}). If only one adopts, the adopter gets {solo} and the non-adopter gets {wait}."
-        qs = parts(("a", "Find the pure-strategy Nash equilibria."), ("b", "Is this a coordination game?"), ("c", "Which equilibrium is Pareto better?"))
-        ss = parts(("a", "Both Adopt and both Do Not Adopt are Nash equilibria: no one wants to deviate unilaterally from either matching outcome."), ("b", "Yes. Each firm prefers to match the other's action."), ("c", f"Both Adopt is Pareto better because both get {adopt} instead of {neither}."))
-        return make_row("Game Theory", "Coordination game", "medium", text, qs, ss, ["coordination", "Nash"], {"firm1": f1, "firm2": f2}, family="coordination")
-    if k == 2:
-        incumbent_safe, fight_i, fight_r, acc_i, acc_r = 80 + i, -10 - i % 4, 40 + i, 30 + i, 60 + i
-        text = f"{f1} first chooses Enter or Stay Out. If it stays out, payoffs are (0,{incumbent_safe}). If it enters, {f2} chooses Fight or Accommodate. Fight gives ({fight_i},{fight_r}); Accommodate gives ({acc_i},{acc_r})."
-        qs = parts(("a", "Solve by backward induction."), ("b", "Will entry occur?"), ("c", "Is fighting a credible threat?"))
-        ss = parts(("a", f"If entry occurs, {f2} prefers Accommodate because {acc_r} > {fight_r}. Anticipating this, {f1} enters because {acc_i} > 0."), ("b", "Yes, entry occurs."), ("c", "No. Fighting is not credible because accommodation is better after entry."))
-        return make_row("Game Theory", "Sequential entry", "medium", text, qs, ss, ["backward induction"], {"firm1": f1, "firm2": f2}, family="entry game")
-    if k == 3:
-        clean_cost, both_clean, polluter, cleaner = 7 + i % 5, 50 + i, 56 + i, 34 + i
-        both_pollute = both_clean - clean_cost - 2
-        text = f"{f1} and {f2} choose Clean or Pollute. Clean costs each firm {clean_cost}. If both are clean, each gets {both_clean} before costs. If one pollutes while the other is clean, the polluter gets {polluter} and the clean firm gets {cleaner} before any clean cost. If both pollute, each gets {both_pollute}."
-        qs = parts(("a", "Compute net payoffs for each outcome."), ("b", "What is each firm's dominant action?"), ("c", "Why is this a prisoners' dilemma?"))
-        ss = parts(("a", f"Both clean gives {both_clean - clean_cost} each. Pollute against clean gives {polluter} to polluter and {cleaner - clean_cost} to cleaner. Both pollute gives {both_pollute} each."), ("b", "Pollute is dominant: it beats Clean whether the other firm is clean or polluting."), ("c", f"Both would be better at Clean/Clean ({both_clean - clean_cost},{both_clean - clean_cost}) than Pollute/Pollute ({both_pollute},{both_pollute}), but individual incentives lead to pollution."))
-        return make_row("Game Theory", "Prisoners' dilemma", "medium", text, qs, ss, ["prisoners dilemma"], {"firm1": f1, "firm2": f2}, family="externality game")
-    al1, al2, ar1, ar2, bl1, bl2, br1, br2 = 30 + i, 40 + i, 20 + i, 20 + i, 35 + i, 10 + i, 25 + i, 30 + i
-    text = f"{f1} chooses A or B, and {f2} chooses Left or Right. Payoffs are: A/Left ({al1},{al2}), A/Right ({ar1},{ar2}), B/Left ({bl1},{bl2}), B/Right ({br1},{br2})."
-    qs = parts(("a", f"Find {possessive(f1)} best response to each action by {f2}."), ("b", f"Find {possessive(f2)} best response to each action by {f1}."), ("c", "Find the Nash equilibrium."))
-    ss = parts(("a", f"If {f2} chooses Left, {f1} chooses B ({bl1} > {al1}). If Right, {f1} chooses B ({br1} > {ar1})."), ("b", f"If {f1} chooses A, {f2} chooses Left ({al2} > {ar2}). If B, {f2} chooses Right ({br2} > {bl2})."), ("c", "The only mutual best response is B/Right."))
-    return make_row("Game Theory", "Best responses", "medium", text, qs, ss, ["best response", "Nash"], {"firm1": f1, "firm2": f2}, family="best responses")
+    difficulty = difficulty_for_index(i)
+    f1, f2 = firm(i, 13), firm(i, 14)
+    if difficulty == "easy":
+        high_high, low_high, high_low, low_low = 2400 + 10 * i, 2700 + 10 * i, 1200 + 5 * i, 1800 + 5 * i
+        text = (
+            f"{f1} and {f2} simultaneously choose a high price or a low price. If both choose High, each earns {money(high_high)}. "
+            f"If one chooses Low while the other chooses High, the low-price firm earns {money(low_high)} and the high-price firm earns "
+            f"{money(high_low)}. If both choose Low, each earns {money(low_low)}."
+        )
+        qs = parts(
+            ("a", "For one firm, identify the best response if the rival chooses High."),
+            ("b", "For one firm, identify the best response if the rival chooses Low."),
+            ("c", "Find the Nash equilibrium."),
+            ("d", "Explain why the equilibrium may be worse for both firms than mutual high pricing."),
+        )
+        ss = parts(
+            ("a", f"Low is better against High because {money(low_high)} > {money(high_high)}."),
+            ("b", f"Low is better against Low because {money(low_low)} > {money(high_low)}."),
+            ("c", "Low is a dominant strategy for both firms, so the Nash equilibrium is Low/Low."),
+            ("d", "Each firm has an individual incentive to cut price, even though both would earn more if both could commit to High."),
+        )
+        return make_row("Game Theory", "Dominant strategies", difficulty, "A Pricing Prisoner's Dilemma", text, qs, ss, ["dominant strategy", "Nash equilibrium"], {"high_high": high_high, "low_high": low_high, "high_low": high_low, "low_low": low_low}, family="pricing game")
+
+    if difficulty == "medium":
+        expand_cost = 220 + 5 * i
+        text = (
+            f"{f1} and {f2} operate local training centers. Each can charge {money(50)} or {money(40)}. At current capacity, the payoff matrix "
+            f"in weekly profit is: both 50 -> (3000, 3000); {f1} 50 and {f2} 40 -> (1800, 3200); {f1} 40 and {f2} 50 -> (3200, 1800); "
+            f"both 40 -> (2400, 2400). {f2} can expand capacity at fixed cost {money(expand_cost)}, changing its payoff from charging 40 "
+            f"against 50 to {money(3400 - expand_cost)} and from both charging 40 to {money(2900 - expand_cost)}."
+        )
+        qs = parts(
+            ("a", "Find the Nash equilibrium before expansion."),
+            ("b", "After expansion, identify each firm's best responses."),
+            ("c", "Find the Nash equilibrium after expansion."),
+            ("d", "Compare firm 2's profit before and after expansion."),
+            ("e", "Explain why extra capacity can make price competition tougher."),
+        )
+        after_40_high = 3400 - expand_cost
+        after_40_40 = 2900 - expand_cost
+        ss = parts(
+            ("a", "Before expansion, each firm prefers 40 regardless of the rival's price, so the equilibrium is 40/40 with profit 2400 each."),
+            ("b", f"Firm 2's low-price payoff after expansion is {money(after_40_high)} against 50 and {money(after_40_40)} against 40; firm 1 still prefers 40 in both cases."),
+            ("c", "The equilibrium remains 40/40 unless expansion makes firm 2 prefer 50 when firm 1 charges 40; with these payoffs it still chooses 40."),
+            ("d", f"Firm 2 earns {money(after_40_40)} after expansion versus {money(2400)} before, so expansion {'raises' if after_40_40 > 2400 else 'lowers'} its equilibrium profit."),
+            ("e", "More capacity makes it more tempting to cut price to fill seats, which can intensify competition and reduce margins."),
+        )
+        return make_row("Game Theory", "Capacity and pricing game", difficulty, "Capacity Expansion and Price Competition", text, qs, ss, ["Nash equilibrium", "capacity", "price competition"], {"expand_cost": expand_cost}, family="capacity pricing")
+
+    fight_loss, monopoly_profit, entry_profit = 400 + 10 * i, 1800 + 20 * i, 900 + 10 * i
+    text = (
+        f"An entrant is deciding whether to enter {f1}'s market. If the entrant stays out, {f1} earns {money(monopoly_profit)} and the entrant earns 0. "
+        f"If the entrant enters, {f1} can accommodate or fight. Accommodation gives {f1} {money(1100 + 10 * i)} and the entrant {money(entry_profit)}. "
+        f"Fighting gives {f1} {money(fight_loss)} and the entrant {money(-200)}. Consider both a simultaneous-entry story and a sequential game in which "
+        f"the entrant moves first and {f1} responds after observing entry."
+    )
+    qs = parts(
+        ("a", "In the sequential game, what is the incumbent's best response to entry?"),
+        ("b", "Using backward induction, will the entrant enter?"),
+        ("c", "What are the equilibrium payoffs?"),
+        ("d", "Would a non-credible threat to fight deter entry?"),
+        ("e", "How could the incumbent make a threat to fight more credible?"),
+        ("f", "Explain the broader business lesson from backward induction."),
+    )
+    inc_acc = 1100 + 10 * i
+    ss = parts(
+        ("a", f"Accommodation is better because {money(inc_acc)} > {money(fight_loss)}."),
+        ("b", f"Knowing the incumbent will accommodate, the entrant enters because {money(entry_profit)} > 0."),
+        ("c", f"Payoffs are incumbent {money(inc_acc)} and entrant {money(entry_profit)}."),
+        ("d", "No. A threat to fight is not credible if the incumbent would prefer to accommodate once entry occurs."),
+        ("e", "It could build excess capacity, sign contracts, or make other commitments that change the payoff from fighting versus accommodating."),
+        ("f", "Strategic plans must be sequentially rational: rivals look ahead to what a firm will actually want to do later."),
+    )
+    return make_row("Game Theory", "Sequential entry", difficulty, "Entry Deterrence and Credibility", text, qs, ss, ["backward induction", "credible threat", "entry"], {"fight_loss": fight_loss, "monopoly_profit": monopoly_profit, "entry_profit": entry_profit}, family="sequential entry")
 
 
 def oligopoly(i: int) -> dict[str, Any]:
-    f = firm(i, 8)
-    k = i % 5
-    a, c = 100 + i, 20 + i % 7
-    if k == 0:
+    difficulty = difficulty_for_index(i)
+    f1, f2, good = firm(i, 15), firm(i, 16), product(i, 9)
+    a, c = 120 + i, 20 + i % 6
+    if difficulty == "easy":
+        price = c + 12 + i % 4
+        text = (
+            f"{f1} and {f2} sell identical {good} and choose prices simultaneously. Each has constant marginal cost {money(c)} and enough "
+            f"capacity to serve the whole market. Suppose one firm is currently charging {money(price)}."
+        )
+        qs = parts(
+            ("a", "If the rival charges above marginal cost, what price slightly undercuts it?"),
+            ("b", "Why is any common price above marginal cost unstable?"),
+            ("c", "What is the Bertrand equilibrium price?"),
+            ("d", "Explain why this result depends on the products being identical and capacity being sufficient."),
+        )
+        ss = parts(
+            ("a", f"A firm can charge just below {money(price)} and capture the market while still pricing above cost."),
+            ("b", "Each firm wants to undercut a rival price above MC, so mutual high prices are not best responses."),
+            ("c", f"The Bertrand equilibrium price is {money(c)}, equal to marginal cost."),
+            ("d", "Differentiation or capacity limits soften competition because a firm cannot necessarily capture all customers by undercutting."),
+        )
+        return make_row("Oligopoly and Strategic Competition", "Bertrand competition", difficulty, "Bertrand Price Competition", text, qs, ss, ["Bertrand", "marginal cost pricing"], {"mc": c, "price": price}, family="Bertrand")
+
+    if difficulty == "medium":
         q = (a - c) / 3
         p = a - 2 * q
-        text = f"{f} and a rival compete in quantities. Market demand is P = {a} - Q and both have marginal cost {money(c)}."
-        qs = parts(("a", "Derive a firm's best response."), ("b", "Find symmetric Cournot quantities and price."), ("c", "Compute each firm's profit."))
-        ss = parts(("a", f"BR is qi = ({a-c} - qj)/2."), ("b", f"Symmetry gives q = {num(q)} and price P = {money(p)}."), ("c", f"Profit per firm is (P - MC)q = {money((p-c)*q)}."))
-        return make_row("Oligopoly and Strategic Competition", "Cournot duopoly", "hard", text, qs, ss, ["Cournot"], {"a": a, "mc": c}, family="Cournot")
-    if k == 1:
-        qL = (a - c) / 2
-        qF = (a - c - qL) / 2
-        p = a - qL - qF
-        text = f"{f} is a Stackelberg leader. Demand is P = {a} - Q and both firms have marginal cost {money(c)}."
-        qs = parts(("a", "Find the follower's best response."), ("b", "Find leader and follower quantities."), ("c", "Find market price."))
-        ss = parts(("a", f"Follower response is qF = ({a-c} - qL)/2."), ("b", f"The leader chooses qL = ({a-c})/2 = {num(qL)}; follower produces {num(qF)}."), ("c", f"Price is {money(p)}."))
-        return make_row("Oligopoly and Strategic Competition", "Stackelberg leadership", "hard", text, qs, ss, ["Stackelberg"], {"a": a, "mc": c}, family="Stackelberg")
-    if k == 2:
-        text = f"{f} and a rival sell identical products and have the same constant marginal cost {money(c)}. They choose prices simultaneously and have enough capacity to serve the market."
-        qs = parts(("a", "What is the Bertrand equilibrium price?"), ("b", "What is economic profit?"), ("c", "Why does price fall to marginal cost?"))
-        ss = parts(("a", f"Price equals marginal cost: {money(c)}."), ("b", "Economic profit is zero."), ("c", "Any firm pricing above marginal cost can be undercut slightly by the rival, so competition drives price to MC."))
-        return make_row("Oligopoly and Strategic Competition", "Bertrand competition", "medium", text, qs, ss, ["Bertrand"], {"mc": c}, family="Bertrand")
-    if k == 3:
-        q_collude = (a - c) / 4
-        p_collude = a - 2 * q_collude
-        q_cournot = (a - c) / 3
-        text = f"{f} and a rival consider colluding in a market with P = {a} - Q and marginal cost {money(c)}."
-        qs = parts(("a", "If they maximize joint profit and split output evenly, how much does each produce?"), ("b", "Compare with Cournot output per firm."), ("c", "Why is collusion fragile?"))
-        ss = parts(("a", f"Joint monopoly total output is ({a-c})/2, so each produces {num(q_collude)} and price is {money(p_collude)}."), ("b", f"Cournot output per firm is ({a-c})/3 = {num(q_cournot)}, higher than collusive output per firm."), ("c", "Each firm has an incentive to secretly expand output when the other restricts output."))
-        return make_row("Oligopoly and Strategic Competition", "Collusion", "medium", text, qs, ss, ["collusion", "Cournot"], {"a": a, "mc": c}, family="collusion")
-    cap, demand, price, mc = 80 + i % 10, 150 + i, 50 + i % 5, 15 + i % 4
-    served = min(cap, demand)
-    profit = (price - mc) * served
-    text = f"{f} has capacity {cap}. At price {money(price)}, demand for its service is {demand}; marginal cost is {money(mc)}."
-    qs = parts(("a", "How many customers can it serve?"), ("b", "Compute weekly profit ignoring fixed costs."), ("c", "Why can capacity matter in price competition?"))
-    ss = parts(("a", f"It serves min({cap}, {demand}) = {served} customers."), ("b", f"Profit is ({price} - {mc}) x {served} = {money(profit)}."), ("c", "Capacity limits can soften price competition because a low-price firm may not be able to serve everyone."))
-    return make_row("Oligopoly and Strategic Competition", "Capacity constraint", "easy", text, qs, ss, ["capacity", "price competition"], {"capacity": cap, "demand": demand, "price": price, "mc": mc}, family="capacity")
+        profit = (p - c) * q
+        q_m = (a - c) / 2
+        p_m = a - q_m
+        text = (
+            f"{f1} and {f2} choose quantities of {good} simultaneously. Market inverse demand is P = {a} - Q, where Q is total output. "
+            f"Both firms have constant marginal cost {money(c)}. They are considering whether competition or collusion is more profitable."
+        )
+        qs = parts(
+            ("a", "Write firm 1's best response to firm 2's quantity."),
+            ("b", "Find the symmetric Cournot equilibrium quantity for each firm."),
+            ("c", "Find price and profit per firm in Cournot equilibrium."),
+            ("d", "Find total monopoly quantity and price if the firms collude perfectly."),
+            ("e", "Explain why collusion may be unstable even if joint profit is higher."),
+        )
+        ss = parts(
+            ("a", f"Firm 1 maximizes (a - q1 - q2 - c)q1, so q1 = ({a - c} - q2)/2."),
+            ("b", f"Symmetry gives q = (a - c)/3 = {num(q)} for each firm."),
+            ("c", f"Price is {money(p)} and profit per firm is {money(profit)}."),
+            ("d", f"Monopoly total quantity is {num(q_m)} and price is {money(p_m)}."),
+            ("e", "Each firm may gain by secretly expanding output while the other restricts output, so collusion requires enforcement."),
+        )
+        return make_row("Oligopoly and Strategic Competition", "Cournot duopoly", difficulty, "Cournot Competition and Collusion", text, qs, ss, ["Cournot", "collusion"], {"a": a, "mc": c}, family="Cournot")
+
+    q_leader = (a - c) / 2
+    q_follower = (a - c) / 4
+    p_stack = a - q_leader - q_follower
+    profit_l = (p_stack - c) * q_leader
+    profit_f = (p_stack - c) * q_follower
+    q_c = (a - c) / 3
+    p_c = a - 2 * q_c
+    text = (
+        f"{f1} can commit to capacity before {f2} chooses output in the market for {good}. Demand is P = {a} - Q and both firms have "
+        f"marginal cost {money(c)}. Compare this Stackelberg situation with simultaneous Cournot competition."
+    )
+    qs = parts(
+        ("a", "Write the follower's best response."),
+        ("b", "Find the Stackelberg leader and follower quantities."),
+        ("c", "Find the Stackelberg price and profits."),
+        ("d", "Find the symmetric Cournot quantity and price for comparison."),
+        ("e", "Who benefits from moving first?"),
+        ("f", "Explain the strategic commitment intuition."),
+    )
+    ss = parts(
+        ("a", f"Follower best response is q2 = ({a - c} - q1)/2."),
+        ("b", f"Leader quantity is {num(q_leader)} and follower quantity is {num(q_follower)}."),
+        ("c", f"Price is {money(p_stack)}; leader profit is {money(profit_l)} and follower profit is {money(profit_f)}."),
+        ("d", f"Cournot has each firm produce {num(q_c)} and price {money(p_c)}."),
+        ("e", "The leader benefits by committing to a larger quantity, forcing the follower to scale back."),
+        ("f", "A credible early capacity choice changes the rival's best response and can shift profit toward the committed firm."),
+    )
+    return make_row("Oligopoly and Strategic Competition", "Stackelberg leadership", difficulty, "Capacity Commitment in Oligopoly", text, qs, ss, ["Stackelberg", "commitment", "Cournot"], {"a": a, "mc": c}, family="Stackelberg")
 
 
 def externalities_public_goods(i: int) -> dict[str, Any]:
-    f = firm(i, 10)
-    k = i % 5
-    if k in {0, 1}:
-        a, mc, damage = 100 + i, 20 + i % 8, 10 + i % 5
-        q_private = a - mc
-        q_social = a - mc - damage
-        text = f"{f} produces a good with inverse demand P = {a} - Q, private marginal cost {money(mc)}, and external marginal damage {money(damage)} per unit."
-        qs = parts(("a", "Find the unregulated quantity."), ("b", "Find the efficient quantity."), ("c", "Find the Pigouvian tax."))
-        ss = parts(("a", f"Private equilibrium sets {a} - Q = {mc}, so Q = {num(q_private)}."), ("b", f"Efficiency sets demand equal to social MC {mc + damage}, so Q = {num(q_social)}."), ("c", f"The Pigouvian tax equals marginal damage: {money(damage)}."))
-        return make_row("Externalities and Public Goods", "Pigouvian tax", "medium", text, qs, ss, ["externality", "Pigouvian tax"], {"a": a, "mc": mc, "damage": damage}, family="negative externality")
-    if k == 2:
-        mb1, mb2, mc = 50 + i, 30 + i // 2, 60
-        q = mb1 + mb2 - mc
-        text = f"Two departments benefit from a public dashboard built by {f}. Marginal benefits are MB1 = {mb1} - Q and MB2 = {mb2} - Q. Marginal cost is {money(mc)}."
-        qs = parts(("a", "Write the Samuelson condition."), ("b", "Find efficient Q."), ("c", "Why do we add marginal benefits vertically?"))
-        ss = parts(("a", "For a public good, MB1 + MB2 = MC."), ("b", f"({mb1} - Q) + ({mb2} - Q) = {mc}, so Q = {num(q/2)}."), ("c", "The same unit is consumed by both users, so social marginal benefit sums their marginal benefits."))
-        return make_row("Externalities and Public Goods", "Public goods", "hard", text, qs, ss, ["public goods", "Samuelson condition"], {"mb1": mb1, "mb2": mb2, "mc": mc}, family="public good")
-    if k == 3:
-        benefit, external, cost = 40 + i % 6, 15 + i % 5, 30
-        net_social = benefit + external - cost
-        text = f"Each unit of {possessive(f)} training service gives buyers private marginal benefit {money(benefit)} and creates external benefit {money(external)} for coworkers. Marginal cost is {money(cost)}."
-        qs = parts(("a", "Find private net benefit."), ("b", "Find social net benefit."), ("c", "What subsidy would align private and social incentives?"))
-        ss = parts(("a", f"Private net benefit is {money(benefit - cost)}."), ("b", f"Social net benefit is {money(net_social)}."), ("c", f"A per-unit subsidy equal to the external benefit, {money(external)}, aligns incentives."))
-        return make_row("Externalities and Public Goods", "Positive externality", "easy", text, qs, ss, ["positive externality", "subsidy"], {"benefit": benefit, "external": external, "cost": cost}, family="positive externality")
-    users, value, cost = 8 + i, 7 + i % 6, 60 + i
-    social_value = users * value
-    text = f"{f} can create a shared data tool used by {users} teams. Each team values access at {money(value)}. Total cost is {money(cost)}."
-    qs = parts(("a", "Is provision efficient?"), ("b", "Would a private seller charging each team separately cover cost if all paid value?"), ("c", "What free-rider issue can arise?"))
-    ss = parts(("a", f"Social value is {users} x {money(value)} = {money(social_value)}, so provision is {'efficient' if social_value >= cost else 'not efficient'}."), ("b", f"If all paid value, revenue would be {money(social_value)}, {'enough' if social_value >= cost else 'not enough'} to cover cost."), ("c", "Each team may hope others pay while it still benefits, causing under-provision."))
-    return make_row("Externalities and Public Goods", "Free riding", "medium", text, qs, ss, ["public goods", "free riding"], {"users": users, "value": value, "cost": cost}, family="free riding")
+    difficulty = difficulty_for_index(i)
+    good, city = product(i, 3), place(i, 3)
+    if difficulty == "easy":
+        private_benefit, external_benefit, cost = 34 + i % 5, 8 + i % 5, 38 + i % 4
+        text = (
+            f"Residents of {city} are deciding whether to adopt cleaner {good}. A buyer receives private benefit {money(private_benefit)} per unit, "
+            f"and each unit creates an external benefit of {money(external_benefit)} for neighbors. The marginal cost is {money(cost)}."
+        )
+        qs = parts(
+            ("a", "Will the private market buy the unit without intervention?"),
+            ("b", "Is the unit socially efficient?"),
+            ("c", "What per-unit subsidy would align private and social incentives?"),
+            ("d", "Explain why positive externalities create under-consumption."),
+        )
+        ss = parts(
+            ("a", f"No, because private benefit {money(private_benefit)} is below cost {money(cost)}."),
+            ("b", f"Social benefit is {money(private_benefit + external_benefit)}, so the unit is {'efficient' if private_benefit + external_benefit >= cost else 'not efficient'}."),
+            ("c", f"A subsidy of {money(external_benefit)} per unit makes buyers internalize the external benefit."),
+            ("d", "Buyers ignore benefits received by others, so they buy too little unless policy or bargaining internalizes the spillover."),
+        )
+        return make_row("Externalities and Public Goods", "Positive externality", difficulty, "Clean Adoption Spillovers", text, qs, ss, ["positive externality", "subsidy"], {"private_benefit": private_benefit, "external_benefit": external_benefit, "cost": cost}, family="positive externality")
+
+    if difficulty == "medium":
+        a, b, mc, damage = 110 + i, 2, 22 + i % 5, 10 + i % 5
+        q_market = (a - mc) / b
+        q_eff = (a - mc - damage) / b
+        p_market = mc
+        p_eff = a - b * q_eff
+        text = (
+            f"In {city}, production of {good} creates a pollution cost of {money(damage)} per unit. Demand is P = {a} - {b}Q and private "
+            f"marginal cost is {money(mc)}. The city is considering a Pigouvian tax."
+        )
+        qs = parts(
+            ("a", "Find the competitive market quantity without regulation."),
+            ("b", "Find the socially efficient quantity."),
+            ("c", "What Pigouvian tax implements the efficient quantity?"),
+            ("d", "At the efficient quantity, what price do consumers pay?"),
+            ("e", "Explain why the tax is not just a revenue tool."),
+        )
+        ss = parts(
+            ("a", f"With P = private MC, Q = ({a} - {mc})/{b} = {num(q_market)}."),
+            ("b", f"Social MC is {money(mc + damage)}, so Q = ({a} - {mc + damage})/{b} = {num(q_eff)}."),
+            ("c", f"The Pigouvian tax is {money(damage)} per unit."),
+            ("d", f"Consumers pay demand price {money(p_eff)} at Q = {num(q_eff)}."),
+            ("e", "The tax makes decision makers face the external cost, reducing inefficient output toward the social optimum."),
+        )
+        return make_row("Externalities and Public Goods", "Pigouvian tax", difficulty, "Pollution and Corrective Taxation", text, qs, ss, ["negative externality", "Pigouvian tax"], {"a": a, "b": b, "mc": mc, "damage": damage}, family="Pigouvian tax")
+
+    a1, a2, mc = 70 + i % 8, 55 + i % 6, 60 + i % 5
+    q_social = (a1 + a2 - mc) / 2
+    q_private = max(0, a1 - mc)
+    text = (
+        f"Two neighborhoods benefit from a public safety app. Neighborhood A's marginal benefit is MB_A = {a1} - q, and neighborhood B's "
+        f"marginal benefit is MB_B = {a2} - q. The marginal cost of improving the app is {money(mc)} per unit of quality q. The app is non-rival "
+        f"within the city."
+    )
+    qs = parts(
+        ("a", "Write the Samuelson condition for efficient public good provision."),
+        ("b", "Find the efficient quality level."),
+        ("c", "If only neighborhood A paid voluntarily, what quality would it choose?"),
+        ("d", "Compare voluntary provision with the efficient level."),
+        ("e", "Explain the free-rider problem in this setting."),
+        ("f", "Name one policy or institution that could move provision closer to efficient."),
+    )
+    ss = parts(
+        ("a", "For a public good, sum marginal benefits vertically and set MB_A + MB_B = MC."),
+        ("b", f"({a1} - q) + ({a2} - q) = {mc}, so q = {num(q_social)}."),
+        ("c", f"A alone sets {a1} - q = {mc}, so q = {num(q_private)}."),
+        ("d", f"Voluntary provision is below the efficient level: {num(q_private)} versus {num(q_social)}."),
+        ("e", "Each neighborhood would like the other to pay because both benefit from the same quality improvement."),
+        ("f", "Tax financing, Lindahl-style pricing, contracts, or a citywide vote can help coordinate payment."),
+    )
+    return make_row("Externalities and Public Goods", "Public good provision", difficulty, "Funding a Public Safety App", text, qs, ss, ["public goods", "Samuelson condition", "free riding"], {"a1": a1, "a2": a2, "mc": mc}, family="public good")
 
 
 def consumer_choice(i: int) -> dict[str, Any]:
-    f = firm(i, 12)
-    k = i % 5
-    if k == 0:
-        income, px, py = 120 + 5 * i, 5 + i % 5, 10 + i % 4
-        x, y = income / (2 * px), income / (2 * py)
-        text = f"A consumer has utility U(x,y)=x^0.5y^0.5 over {f} credits x and cafe meals y. Income is {money(income)}, Px={money(px)}, and Py={money(py)}."
-        qs = parts(("a", "Write the budget constraint."), ("b", "Find optimal x and y."), ("c", "How much is spent on each good?"))
-        ss = parts(("a", f"{px}x + {py}y = {income}."), ("b", f"Equal Cobb-Douglas shares imply x = {num(x)} and y = {num(y)}."), ("c", f"Half of income, {money(income/2)}, is spent on each good."))
-        return make_row("Consumer Choice", "Cobb-Douglas demand", "medium", text, qs, ss, ["utility maximization"], {"income": income, "px": px, "py": py}, {"utility": "x^0.5y^0.5"}, family="Cobb-Douglas")
-    if k == 1:
-        income, px, py = 100 + 5 * i, 4 + i % 4, 8 + i % 4
-        text = f"A customer views one {f} device and two service hours as perfect complements: U(x,y)=min(x, y/2). Income is {money(income)}, Px={money(px)}, Py={money(py)}."
-        x = income / (px + 2 * py)
-        y = 2 * x
-        qs = parts(("a", "What relation between x and y holds at the optimum?"), ("b", "Find x and y."), ("c", "Why not buy extra y beyond that ratio?"))
-        ss = parts(("a", "Perfect complements require y = 2x."), ("b", f"Budget gives {px}x + {py}(2x) = {income}, so x = {num(x)} and y = {num(y)}."), ("c", "Extra y without matching x does not raise utility."))
-        return make_row("Consumer Choice", "Perfect complements", "medium", text, qs, ss, ["perfect complements"], {"income": income, "px": px, "py": py}, {"utility": "min(x,y/2)"}, family="complements")
-    if k == 2:
-        income, px, py = 90 + 4 * i, 6 + i % 5, 3 + i % 3
-        text = f"A consumer sees {f} tokens x and transit credits y as perfect substitutes: U=x+y. Income is {money(income)}, Px={money(px)}, Py={money(py)}."
-        buy_y = py < px
-        qs = parts(("a", "Which good does the consumer buy?"), ("b", "How much of that good?"), ("c", "When would the consumer be indifferent?"))
-        ss = parts(("a", f"The consumer buys the cheaper utility unit, {'y' if buy_y else 'x'}."), ("b", f"Quantity is income divided by its price: {num(income / (py if buy_y else px))}."), ("c", "The consumer is indifferent when Px = Py."))
-        return make_row("Consumer Choice", "Perfect substitutes", "easy", text, qs, ss, ["perfect substitutes"], {"income": income, "px": px, "py": py}, {"utility": "x+y"}, family="substitutes")
-    if k == 3:
-        income, px_old, px_new, py = 160 + i, 8, 10, 10
-        x_old, x_new = income / (2 * px_old), income / (2 * px_new)
-        text = f"A consumer has Cobb-Douglas utility over {f} units x and good y. Income is {money(income)} and Py={money(py)}. Px rises from {money(px_old)} to {money(px_new)}."
-        qs = parts(("a", "Find x before the price change."), ("b", "Find x after the price change."), ("c", "Explain why x changes."))
-        ss = parts(("a", f"With equal shares, x_old = ({income}/2)/{px_old} = {num(x_old)}."), ("b", f"x_new = ({income}/2)/{px_new} = {num(x_new)}."), ("c", "The higher price makes each unit of x more expensive, so demand for x falls."))
-        return make_row("Consumer Choice", "Price change", "medium", text, qs, ss, ["demand", "price change"], {"income": income, "px_old": px_old, "px_new": px_new, "py": py}, family="price change")
-    u, px, py = 100 + i, 5 + i % 5, 10 + i % 4
-    # For U=sqrt(xy), cost min for utility u: x/y = py/px and xy=u^2.
+    difficulty = difficulty_for_index(i)
+    if difficulty == "easy":
+        income, px, py = 120 + 5 * i, 4 + i % 3, 6 + i % 4
+        x = income / (2 * px)
+        y = income / (2 * py)
+        text = (
+            f"A consumer has income {money(income)} to spend on x and y. Prices are Px = {money(px)} and Py = {money(py)}. Utility is "
+            f"u(x,y)=sqrt(xy), so the consumer spends half of income on each good."
+        )
+        qs = parts(
+            ("a", "Write the budget constraint."),
+            ("b", "Find optimal spending on each good."),
+            ("c", "Find the optimal quantities x and y."),
+            ("d", "Explain why the consumer does not simply buy the cheaper good only."),
+        )
+        ss = parts(
+            ("a", f"{px}x + {py}y = {income}."),
+            ("b", f"The consumer spends {money(income / 2)} on each good."),
+            ("c", f"x = {num(x)} and y = {num(y)}."),
+            ("d", "Cobb-Douglas preferences value balance: as one good becomes scarce, its marginal utility rises."),
+        )
+        return make_row("Consumer Choice", "Cobb-Douglas demand", difficulty, "Balanced Spending with Cobb-Douglas Utility", text, qs, ss, ["utility maximization", "budget constraint"], {"income": income, "px": px, "py": py}, {"utility": "sqrt(xy)"}, family="Cobb Douglas")
+
+    if difficulty == "medium":
+        income, px_old, px_new, py = 150 + 5 * (i % 5), 5 + i % 3, 8 + i % 4, 6 + i % 3
+        x_old = income / (2 * px_old)
+        y_old = income / (2 * py)
+        x_new = income / (2 * px_new)
+        y_new = y_old
+        text = (
+            f"A consumer with utility u(x,y)=sqrt(xy) has income {money(income)}. Initially Px = {money(px_old)} and Py = {money(py)}. "
+            f"After a supply disruption, Px rises to {money(px_new)} while income and Py stay fixed. Use the Cobb-Douglas structure to "
+            f"separate spending shares from quantities."
+        )
+        qs = parts(
+            ("a", "Find the initial optimal bundle."),
+            ("b", "Find the new optimal bundle after Px rises."),
+            ("c", "What happens to spending on x and y?"),
+            ("d", "What happens to the quantity of x?"),
+            ("e", "Explain why the spending result is special to Cobb-Douglas preferences."),
+        )
+        ss = parts(
+            ("a", f"Initial x = {num(x_old)} and y = {num(y_old)}."),
+            ("b", f"New x = {num(x_new)} and y = {num(y_new)}."),
+            ("c", f"Spending remains {money(income / 2)} on each good."),
+            ("d", f"Quantity x falls from {num(x_old)} to {num(x_new)} because the same x spending buys fewer units."),
+            ("e", "Cobb-Douglas demands have constant expenditure shares; other preferences need not keep spending shares fixed."),
+        )
+        return make_row("Consumer Choice", "Price change", difficulty, "A Price Increase with Cobb-Douglas Utility", text, qs, ss, ["price change", "demand", "expenditure shares"], {"income": income, "px_old": px_old, "px_new": px_new, "py": py}, {"utility": "sqrt(xy)"}, family="price change")
+
+    u, px, py = 24 + i % 6, 4 + i % 4, 9 + i % 5
     x = u * math.sqrt(py / px)
     y = u * math.sqrt(px / py)
-    cost = px * x + py * y
-    text = f"A student wants utility level U={u} from U(x,y)=sqrt(xy), where x is {f} tutoring hours. Prices are Px={money(px)} and Py={money(py)}."
-    qs = parts(("a", "Write the cost-minimization tangency condition."), ("b", "Find cost-minimizing x and y."), ("c", "Compute minimum expenditure."))
-    ss = parts(("a", f"MRS = y/x = Px/Py = {px}/{py}, so x/y = {num(py/px)}."), ("b", f"Together with xy = {u**2}, this gives x = {num(x)} and y = {num(y)}."), ("c", f"Minimum expenditure is {money(cost)}."))
-    return make_row("Consumer Choice", "Expenditure minimization", "hard", text, qs, ss, ["expenditure minimization"], {"u": u, "px": px, "py": py}, {"utility": "sqrt(xy)"}, family="dual problem")
+    expenditure = px * x + py * y
+    text = (
+        f"A benefits office wants to provide enough vouchers for a household to reach utility u(x,y)=sqrt(xy) = {u} at minimum cost. "
+        f"The prices are Px = {money(px)} and Py = {money(py)}. The office asks whether cost minimization gives the same bundle as simply "
+        f"buying equal quantities of both goods."
+    )
+    qs = parts(
+        ("a", "Write the expenditure minimization problem."),
+        ("b", "Use the tangency condition to relate y and x."),
+        ("c", "Find the cost-minimizing quantities."),
+        ("d", "Compute minimum expenditure."),
+        ("e", "If Py rises, which way should the bundle adjust?"),
+        ("f", "Explain why this problem is useful even though consumers usually choose subject to a budget."),
+    )
+    ss = parts(
+        ("a", f"Minimize {px}x + {py}y subject to sqrt(xy) = {u}."),
+        ("b", f"MRS = y/x = Px/Py = {num(px / py)}, so y = {num(px / py)}x."),
+        ("c", f"x = u sqrt(Py/Px) = {num(x)} and y = u sqrt(Px/Py) = {num(y)}."),
+        ("d", f"Minimum expenditure is {money(expenditure)}."),
+        ("e", "The office substitutes away from y and toward x, while still meeting the utility target."),
+        ("f", "It tells us the least income needed to reach a target utility and helps decompose price-change welfare effects."),
+    )
+    return make_row("Consumer Choice", "Expenditure minimization", difficulty, "Meeting a Utility Target at Minimum Cost", text, qs, ss, ["expenditure minimization", "duality"], {"u": u, "px": px, "py": py}, {"utility": "sqrt(xy)"}, family="expenditure minimization")
 
 
 def mixed_review(i: int) -> dict[str, Any]:
-    # Rotate through compact review versions of several core models.
-    funcs = [monopoly, supply_and_demand, elasticity, production_costs, consumer_choice]
-    item = funcs[i % len(funcs)](i + 100)
-    item["topic"] = "Mixed Review"
-    item["subtopic"] = f"Review: {item['subtopic']}"
-    item["generated_id"] = stable_id("gen", item["topic"], item["subtopic"], item["problem_text"], item["solution"])
-    return item
+    funcs = [
+        supply_and_demand,
+        elasticity,
+        production_costs,
+        monopoly,
+        risk_insurance,
+        incentives_contracts,
+        trade_welfare,
+        price_discrimination,
+    ]
+    base = funcs[(i - 1) % len(funcs)](i + 200)
+    base["topic"] = "Mixed Review"
+    base["subtopic"] = f"Review: {base['subtopic']}"
+    base["problem_title"] = f"Mixed Review: {base['problem_title']}"
+    base["problem_text"] = (
+        "Mixed review prompt. Identify the relevant model before calculating; the goal is to connect the numbers to the economic logic.\n\n"
+        + base["problem_text"]
+    )
+    base["variation_notes"] = f"Local exam-style bank: mixed review based on {base['subtopic']}."
+    base["generated_id"] = stable_id(
+        "gen",
+        base["topic"],
+        base["subtopic"],
+        base["difficulty"],
+        base["problem_title"],
+        base["problem_text"],
+        base["solution"],
+    )
+    return base
 
 
 GENERATORS: dict[str, Callable[[int], dict[str, Any]]] = {
@@ -769,8 +1478,17 @@ GENERATORS: dict[str, Callable[[int], dict[str, Any]]] = {
 def build_curated_bank(per_topic: int = 50) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     for topic, generator in GENERATORS.items():
-        for i in range(per_topic):
-            rows.append(generator(i + 1))
+        for i in range(1, per_topic + 1):
+            row = generator(i)
+            if row["topic"] != topic:
+                raise ValueError(f"Generator for {topic} returned {row['topic']}")
+            rows.append(row)
+    ids = [row["generated_id"] for row in rows]
+    texts = [row["problem_text"] for row in rows]
+    if len(ids) != len(set(ids)):
+        raise ValueError("Generated IDs are not unique.")
+    if len(texts) != len(set(texts)):
+        raise ValueError("Generated problem texts are not unique.")
     return rows
 
 
