@@ -23,7 +23,7 @@ if (workspace) {
     return `<ol class="subparts">${subparts.map((part) => `
       <li data-label="${escapeHtml(part.label)}">
         <span class="subpart-label">(${escapeHtml(part.label)})</span>
-        <span>${escapeHtml(part.text)}</span>
+        <span class="math-text">${formatMathText(part.text)}</span>
         <div class="inline-solution" hidden></div>
       </li>`).join("")}</ol>`;
   }
@@ -35,6 +35,19 @@ if (workspace) {
       .replaceAll(">", "&gt;")
       .replaceAll('"', "&quot;")
       .replaceAll("'", "&#039;");
+  }
+
+  function formatMathText(value) {
+    return escapeHtml(value)
+      .replaceAll("&gt;=", "≥")
+      .replaceAll("&lt;=", "≤")
+      .replaceAll("-&gt;", "→")
+      .replace(/\bsqrt\(([^()\n]+)\)/g, "√($1)")
+      .replace(/\b([A-Za-z]{1,4})_([A-Za-z0-9]{1,4})\b/g, "$1<sub>$2</sub>")
+      .replace(/\b(Q)([ds])\b/g, "$1<sub>$2</sub>")
+      .replace(/\b(P)([bsxy])\b/g, "$1<sub>$2</sub>")
+      .replace(/\b([A-Za-z0-9]+)\^([A-Za-z0-9]+)\b/g, "$1<sup>$2</sup>")
+      .replace(/\b([A-Za-z]{1,3})\*/g, "$1<sup>*</sup>");
   }
 
   async function generateProblem() {
@@ -68,7 +81,7 @@ if (workspace) {
         <span>${escapeHtml(currentProblem.subtopic || currentProblem.item_type)}</span>
       </div>
       <h2>${escapeHtml(currentProblem.problem_title || currentProblem.topic)}</h2>
-      <div class="problem-text">${escapeHtml(currentProblem.problem_text)}</div>
+      <div class="problem-text math-text">${formatMathText(currentProblem.problem_text)}</div>
       ${renderSubparts(currentProblem.subparts)}
     `;
     solutionButton.disabled = false;
@@ -93,7 +106,7 @@ if (workspace) {
         const label = window.CSS && CSS.escape ? CSS.escape(part.label) : part.label;
         const target = problemPanel.querySelector(`li[data-label="${label}"] .inline-solution`);
         if (target) {
-          target.innerHTML = `<strong>Solution (${escapeHtml(part.label)}):</strong> ${escapeHtml(part.text)}`;
+          target.innerHTML = `<strong>Solution (${escapeHtml(part.label)}):</strong> <span class="math-text">${formatMathText(part.text)}</span>`;
           target.hidden = false;
         }
       });
@@ -101,7 +114,7 @@ if (workspace) {
       solutionPanel.innerHTML = "";
       return;
     }
-    solutionPanel.innerHTML = `<div class="solution-text">${escapeHtml(data.solution)}</div>`;
+    solutionPanel.innerHTML = `<div class="solution-text math-text">${formatMathText(data.solution)}</div>`;
   }
 
   generateButton.addEventListener("click", generateProblem);

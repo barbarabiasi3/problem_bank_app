@@ -29,7 +29,7 @@ a {
 .site-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 24px;
   width: min(var(--max-width), calc(100% - 48px));
   margin: 0 auto;
@@ -67,13 +67,6 @@ a {
   object-position: left center;
 }
 
-.main-nav {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.main-nav a,
 .back-link {
   color: var(--yale-blue);
   font-weight: 700;
@@ -81,7 +74,6 @@ a {
   border-bottom: 2px solid transparent;
 }
 
-.main-nav a:hover,
 .back-link:hover {
   border-bottom-color: var(--yale-blue);
 }
@@ -336,6 +328,20 @@ button:disabled {
   overflow-wrap: anywhere;
   font-size: 16px;
   line-height: 1.58;
+}
+
+.math-text sub,
+.math-text sup {
+  font-size: 0.75em;
+  line-height: 0;
+}
+
+.math-text sub {
+  vertical-align: -0.25em;
+}
+
+.math-text sup {
+  vertical-align: 0.45em;
 }
 
 .subparts {
